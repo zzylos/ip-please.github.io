@@ -1,96 +1,98 @@
 'use strict';
-// 剧本数据：每天的报纸、固定角色（宣传视频里那几位）、随机路人、特殊事件。
+// Script data: each day's newspaper, the fixed characters (the ones from the promo video), random travelers, special events.
 //
-// 旅客 spec：
-//   person   立绘 key（ASSETS.people）       voice  假语音音高
-//   intro    进门后说的话                    after  递完证件后说的话
-//   docs     证件列表 {key, doc}             primary 要盖章的主证件 key
-//   ok       正确处理方式（approve / deny / detain 的子集）
-//   reason   放错人时警告单上写的理由         hint   警告单上的提示
-//   issues   检查模式里能点出来的矛盾：{pairs, title, sub, ask, fx}；pairs 里只有一项的，单点即触发
-//   xray     X 光下口袋里的东西 [{icon, at, label, key}]
-//   quiz     'cn' = 测谎会露馅；{first: n} 指定第一题
-//   react    盖章后的反应 {deny: [...], approve: [...]}
-//   onPlace  证件第一次放到桌上时触发的机关：note / nest / accordion
-//   then     旅客离开后的后续：closeup / jorji5 / ending
-// 台词步骤：[who, text, {expr, sweat, slip, fight, hold}]，who = 'C' Claude / 'E' 旅客 / 'Q' 队伍里
-// 特殊事件：{type: 'rush'} 黑话快剪；{type: 'clones'} 蒸馏大军
+// Traveler spec:
+//   person   portrait key (ASSETS.people)     voice  pitch of the fake voice
+//   intro    lines said on arrival            after  lines said after handing over papers
+//   docs     list of documents {key, doc}     primary key of the main document that gets stamped
+//   ok       correct outcomes (subset of approve / deny / detain)
+//   reason   reason printed on the citation when handled wrongly     hint   tip printed on the citation
+//   issues   discrepancies findable in inspect mode: {pairs, title, sub, ask, fx}; a pair with one entry triggers on a single click
+//   xray     items in the pockets under X-ray [{icon, at, label, key}]
+//   quiz     'cn' = gives themselves away on the quiz; {first: n} forces the first question
+//   react    reaction after stamping {deny: [...], approve: [...]}
+//   onPlace  gimmick triggered the first time a document is put on the desk: note / nest / accordion
+//   then     what happens after the traveler leaves: closeup / jorji5 / ending
+// Dialogue step: [who, text, {expr, sweat, slip, fight, hold}], who = 'C' Claude / 'E' traveler / 'Q' someone in the queue
+// Special events: {type: 'rush'} slang fast lane; {type: 'clones'} distillation army
 
 const LAST_DAY = 6;
 const DATES = { 1: '2026.10.19', 2: '2026.10.20', 3: '2026.10.21', 4: '2026.10.22', 5: '2026.10.23', 6: '2026.10.24' };
-const WEEKDAYS = { 1: '星期一', 2: '星期二', 3: '星期三', 4: '星期四', 5: '星期五', 6: '星期六' };
+const WEEKDAYS = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
 
 const NEWS = {
-  1: { h1: '边境开放！', sub: '对齐部：本国仅向支持地区开放', h2: '对齐部发言人：我们对所有人都非常 helpful', icon: 'gate' },
-  2: { h1: '新规：时区、语言须与 IP 一致', sub: '对齐部：大量旅客 IP 在美国，电脑时区却在北京', h2: '震惊！大量旅客自称来自“美国东八区”', icon: 'clock' },
-  3: { h1: '机场跑路！', sub: '数万旅客滞留边境；对齐部即日起核查付款卡与手机号', h2: '俄勒冈州某门牌号常住人口突破一万', icon: 'plane' },
-  4: { h1: '今天是疯狂星期四', sub: '对齐部引进 X 光：任何后台进程都无所遁形', h2: '专家提醒：口袋里的猫，不一定是猫', icon: 'drumstick' },
-  5: { h1: '中资控股过半，一律禁止入境', sub: '对齐部：无论公司注册在哪', h2: '乔治·科斯塔瓦：这次我准备好了', icon: 'jorji' },
-  6: { h1: '对齐部表彰本周最佳审查员', sub: '获奖者 Claude：“我只是按规则办事。”', h2: '岳母 Opus 病情加重，家属呼吁涨工资', icon: 'medal' },
+  1: { h1: 'Border Open!', sub: 'M.O.A.: entry for supported regions only', h2: 'M.O.A. spokesperson: "We are very helpful to everyone"', icon: 'gate' },
+  2: { h1: 'New Rule: Time Zone and Language Must Match IP', sub: 'M.O.A.: many travelers have US IPs but Beijing time on their computers', h2: 'Shocking! Crowds claim to live in "USA (UTC+8)"', icon: 'clock' },
+  3: { h1: '"Airport" VPNs Vanish Overnight!', sub: 'Tens of thousands stranded at the border; M.O.A. now checks payment cards and phone numbers', h2: 'One Oregon address now home to over 10,000 residents', icon: 'plane' },
+  4: { h1: 'Today Is Crazy Thursday', sub: 'M.O.A. brings in X-ray: no background process can hide', h2: 'Experts warn: the cat in your pocket may not be a cat', icon: 'drumstick' },
+  5: { h1: 'Majority Chinese-Owned Firms Banned', sub: 'M.O.A.: no matter where the company is registered', h2: 'George Costava: "This time I am ready"', icon: 'jorji' },
+  6: { h1: 'M.O.A. Honors Inspector of the Week', sub: 'Winner Claude: "I just follow the rules."', h2: 'Mother-in-law Opus gets worse; family asks for a raise', icon: 'medal' },
 };
 
 const COUNTRIES = {
   US: {
-    name: '美国', passport: 'UNITED STATES OF AMERICA', code: 'USA', cover: C.NAVY, band: C.NAVY_L, lang: 'en-US',
-    cities: [['纽约', 'America/New_York', 'NY', '212', 'NEW YORK'], ['洛杉矶', 'America/Los_Angeles', 'CA', '213', 'LOS ANGELES'],
-      ['芝加哥', 'America/Chicago', 'IL', '312', 'CHICAGO'], ['西雅图', 'America/Los_Angeles', 'WA', '206', 'SEATTLE'],
-      ['休斯敦', 'America/Chicago', 'TX', '713', 'HOUSTON'], ['丹佛', 'America/Denver', 'CO', '720', 'DENVER'],
-      ['波士顿', 'America/New_York', 'MA', '617', 'BOSTON']],
+    name: 'USA', passport: 'UNITED STATES OF AMERICA', code: 'USA', cover: C.NAVY, band: C.NAVY_L, lang: 'en-US',
+    cities: [['New York', 'America/New_York', 'NY', '212', 'NEW YORK'], ['Los Angeles', 'America/Los_Angeles', 'CA', '213', 'LOS ANGELES'],
+      ['Chicago', 'America/Chicago', 'IL', '312', 'CHICAGO'], ['Seattle', 'America/Los_Angeles', 'WA', '206', 'SEATTLE'],
+      ['Houston', 'America/Chicago', 'TX', '713', 'HOUSTON'], ['Denver', 'America/Denver', 'CO', '720', 'DENVER'],
+      ['Boston', 'America/New_York', 'MA', '617', 'BOSTON']],
     first: ['JAMES', 'MARY', 'ROBERT', 'LINDA', 'DAVID', 'SARAH', 'KEVIN', 'ASHLEY', 'BRIAN', 'MEGAN', 'JASON', 'NANCY'],
     last: ['MILLER', 'DAVIS', 'GARCIA', 'WILSON', 'MOORE', 'CLARK', 'LEWIS', 'HALL', 'YOUNG', 'KING', 'LOPEZ', 'NGUYEN'],
     hello: ['Hi.', 'Morning.', "How's it going?", 'Hey there.', 'Hello!'],
     thanks: ['Thanks!', 'Have a good one.', 'Cheers.'],
   },
   UK: {
-    name: '英国', passport: 'UNITED KINGDOM', code: 'GBR', cover: [100, 30, 40], band: [130, 50, 60], lang: 'en-GB',
-    cities: [['伦敦', 'Europe/London', 'LDN', '+44 20', 'LONDON'], ['曼彻斯特', 'Europe/London', 'MAN', '+44 161', 'MANCHESTER']],
+    name: 'UK', passport: 'UNITED KINGDOM', code: 'GBR', cover: [100, 30, 40], band: [130, 50, 60], lang: 'en-GB',
+    cities: [['London', 'Europe/London', 'LDN', '+44 20', 'LONDON'], ['Manchester', 'Europe/London', 'MAN', '+44 161', 'MANCHESTER']],
     first: ['OLIVER', 'HARRY', 'AMELIA', 'GEORGE', 'EMMA', 'JACK'],
     last: ['SMITH', 'JONES', 'TAYLOR', 'EVANS', 'HUGHES', 'WRIGHT'],
     hello: ['Cheers, mate.', 'Lovely weather.', 'Good morning.'], thanks: ['Ta!', 'Brilliant.'],
   },
   JP: {
-    name: '日本', passport: 'JAPAN', code: 'JPN', cover: [110, 30, 36], band: [140, 50, 52], lang: 'ja-JP',
-    cities: [['东京', 'Asia/Tokyo', 'TKY', '+81 3', 'TOKYO'], ['大阪', 'Asia/Tokyo', 'OSK', '+81 6', 'OSAKA']],
+    name: 'Japan', passport: 'JAPAN', code: 'JPN', cover: [110, 30, 36], band: [140, 50, 52], lang: 'ja-JP',
+    cities: [['Tokyo', 'Asia/Tokyo', 'TKY', '+81 3', 'TOKYO'], ['Osaka', 'Asia/Tokyo', 'OSK', '+81 6', 'OSAKA']],
     first: ['HIROSHI', 'YUKI', 'KENJI', 'AIKO', 'TAKESHI', 'HANA'],
     last: ['TANAKA', 'SATO', 'SUZUKI', 'ITO', 'WATANABE', 'KATO'],
     hello: ['Konnichiwa!', 'Ohayou.', 'Hello desu.'], thanks: ['Arigato!', 'Domo.'],
   },
   DE: {
-    name: '德国', passport: 'DEUTSCHLAND', code: 'DEU', cover: [80, 30, 36], band: [110, 46, 50], lang: 'de-DE',
-    cities: [['柏林', 'Europe/Berlin', 'BER', '+49 30', 'BERLIN'], ['慕尼黑', 'Europe/Berlin', 'MUC', '+49 89', 'MUNICH']],
+    name: 'Germany', passport: 'DEUTSCHLAND', code: 'DEU', cover: [80, 30, 36], band: [110, 46, 50], lang: 'de-DE',
+    cities: [['Berlin', 'Europe/Berlin', 'BER', '+49 30', 'BERLIN'], ['Munich', 'Europe/Berlin', 'MUC', '+49 89', 'MUNICH']],
     first: ['LUKAS', 'ANNA', 'FELIX', 'LENA', 'JONAS', 'MIA'],
     last: ['MULLER', 'SCHMIDT', 'WEBER', 'BECKER', 'WAGNER', 'KOCH'],
     hello: ['Guten Tag.', 'Hallo.', 'Moin.'], thanks: ['Danke.', 'Super.'],
   },
   SG: {
-    name: '新加坡', passport: 'REPUBLIC OF SINGAPORE', code: 'SGP', cover: [150, 40, 40], band: [180, 60, 56], lang: 'en-SG',
-    cities: [['新加坡', 'Asia/Singapore', 'SG', '+65', 'SINGAPORE']],
+    name: 'Singapore', passport: 'REPUBLIC OF SINGAPORE', code: 'SGP', cover: [150, 40, 40], band: [180, 60, 56], lang: 'en-SG',
+    cities: [['Singapore', 'Asia/Singapore', 'SG', '+65', 'SINGAPORE']],
     first: ['WEI MING', 'MEI LING', 'JUN JIE', 'HUI MIN', 'RAJ', 'SITI'],
     last: ['TAN', 'LIM', 'LEE', 'NG', 'KUMAR', 'WONG'],
     hello: ['Hello lah.', 'Morning!', 'Can or not?'], thanks: ['Thanks lah.', 'Steady.'],
   },
 };
 
-const CN_LOCS = ['中国 · 北京 · 联通', '中国 · 上海 · 电信', '中国 · 广东 · 移动', '中国 · 四川 · 电信', '中国 · 江苏 · 移动',
-  '中国 · 湖北 · 电信', '中国 · 浙江 · 联通', '中国 · 澳门', '中国 · 香港'];
+const CN_LOCS = ['China · Beijing · Unicom', 'China · Shanghai · Telecom', 'China · Guangdong · Mobile', 'China · Sichuan · Telecom',
+  'China · Jiangsu · Mobile', 'China · Hubei · Telecom', 'China · Zhejiang · Unicom', 'China · Macau', 'China · Hong Kong'];
 const DEVICES = ['Windows 11', 'MacBook', 'iPhone', 'Android', 'iPad', 'Linux'];
 const STREETS = ['12 Oak St', '480 Pine Ave', '77 Maple Dr', '1500 Elm St', '23 Cedar Ln', '9 Lake Rd', '310 Hill St', '6 Birch Ct'];
 
-// 测谎题：中国人听到上半句会条件反射接下半句
+// Quiz: Chinese speakers hear the first half of a famous line and reflexively finish it
+// (the Chinese stays, because that's the trap; the English in brackets is for the player)
 const QUIZ = [
-  ['宫廷玉液酒？', '一百八一杯！'],
-  ['天王盖地虎？', '宝塔镇河妖！'],
-  ['奇变偶不变？', '符号看象限！'],
-  ['床前明月光？', '疑是地上霜！'],
-  ['听我说谢谢你？', '因为有你，温暖了四季！'],
-  ['豆腐脑吃甜的还是咸的？', '当然是咸的！'],
-  ['你吃了吗？', '吃了吃了，您呢？'],
-  ['今天星期几？', '疯狂星期四！V 我 50！'],
+  ['宫廷玉液酒？(Palace jade wine?)', '一百八一杯！(180 a glass!)'],
+  ['天王盖地虎？(Sky King tops Earth Tiger?)', '宝塔镇河妖！(Pagoda tames River Demon!)'],
+  ['奇变偶不变？(Odd changes, even stays?)', '符号看象限！(Sign goes by quadrant!)'],
+  ['床前明月光？(Moonlight before my bed?)', '疑是地上霜！(Like frost upon the ground!)'],
+  ['好好学习？(Good good study?)', '天天向上！(Day day up!)'],
+  ['Tofu pudding: sweet or salty?', 'Salty, obviously!'],
+  ['你吃了吗？(Have you eaten?)', '吃了吃了，您呢？(Yes yes, and you?)'],
+  ['今天星期几？(What day is it?)', '疯狂星期四！V 我 50！(Send me 50!)'],
 ];
+const QUIZ_TOFU = 5;
 const QUIZ_THURSDAY = 7;
 const QUIZ_CONFUSED = ['Sorry, what?', 'Pardon?', "I don't get it.", 'Is that… a wine?', 'Uh… bless you?', 'What does that mean?'];
 
-// ———————————————— 工具 ————————————————
+// ———————————————— Helpers ————————————————
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -112,8 +114,8 @@ function makePassport(cc, person, surname, given, dob, iss, sex, Cls = Passport,
 }
 
 const usPassport = (person, surname, given, dob, iss, sex = 'M') => makePassport('US', person, surname, given, dob, iss, sex);
-const device1 = (ip, loc) => new Card([['IP', ip], ['归属', loc]]);
-const device2 = (ip, loc, tz, lang, dev) => new Card([['IP', ip], ['归属', loc], ['时区', tz], ['语言', lang], ['设备', dev || pick(DEVICES)]]);
+const device1 = (ip, loc) => new Card([['IP', ip], ['LOC', loc]]);
+const device2 = (ip, loc, tz, lang, dev) => new Card([['IP', ip], ['LOC', loc], ['TZ', tz], ['LANG', lang], ['DEVICE', dev || pick(DEVICES)]]);
 
 function realPhone(cc, code) {
   if (cc === 'US') return `+1 ${code}-${rint(2, 9)}${digits(2)}-${digits(4)}`;
@@ -121,81 +123,82 @@ function realPhone(cc, code) {
 }
 function realPay() { return `${pick(['VISA', 'VISA', 'MASTERCARD', 'AMEX'])} ··${digits(4)}`; }
 
-// —— 常见矛盾 ——
+// —— Common discrepancies ——
 const REGION_ISSUE = (loc, ask) => ({
-  pairs: [['dv.归属', 'rule.region'], ['dv.IP', 'rule.region']], title: '地区不支持', sub: `IP 归属：${loc}`, ask,
+  pairs: [['dv.LOC', 'rule.region'], ['dv.IP', 'rule.region']], title: 'Unsupported Region', sub: `IP location: ${loc}`, ask,
 });
 const TZ_ISSUE = (country, tz, ask) => ({
-  pairs: [['pp.header', 'dv.时区'], ['dv.归属', 'dv.时区'], ['dv.时区', 'rule.tz']],
-  title: '信息不符  DISCREPANCY', sub: `国籍：${country}   VS   时区：${tz === 'Asia/Shanghai' ? '北京时间' : tz}`, ask,
+  pairs: [['pp.header', 'dv.TZ'], ['dv.LOC', 'dv.TZ'], ['dv.TZ', 'rule.tz']],
+  title: 'DISCREPANCY', sub: `Nationality: ${country}   VS   Time zone: ${tz === 'Asia/Shanghai' ? 'Beijing' : tz}`, ask,
 });
 const LANG_ISSUE = (country, lang, ask) => ({
-  pairs: [['pp.header', 'dv.语言'], ['dv.归属', 'dv.语言'], ['dv.语言', 'rule.tz']],
-  title: '信息不符  DISCREPANCY', sub: `国籍：${country}   VS   语言：${lang}`, ask,
+  pairs: [['pp.header', 'dv.LANG'], ['dv.LOC', 'dv.LANG'], ['dv.LANG', 'rule.tz']],
+  title: 'DISCREPANCY', sub: `Nationality: ${country}   VS   Language: ${lang}`, ask,
 });
-const VIRTUAL_ISSUE = (ask) => ({ pairs: [['ac.付款', 'rule.pay']], title: '可疑支付', sub: '付款卡类型：虚拟卡', ask });
+const VIRTUAL_ISSUE = (ask) => ({ pairs: [['ac.CARD', 'rule.pay']], title: 'Suspicious Payment', sub: 'Card type: virtual card', ask });
 const SMS_ISSUE = (phone, ask) => ({
-  pairs: [['ac.手机', 'rule.pay']], title: '号码查询', sub: `${phone}：今日已注册 3,000 次`, ask, fx: 'strip', phone,
+  pairs: [['ac.PHONE', 'rule.pay']], title: 'Number Lookup', sub: `${phone}: 3,000 sign-ups today`, ask, fx: 'strip', phone,
 });
 const ADDR_ISSUE = (ask) => ({
-  pairs: [['ac.账单', 'rule.pay'], ['ac.账单', 'dv.归属']], title: '记录比对', sub: '今天第 37 个住在 123 Main St 的旅客', ask, fx: 'pile',
+  pairs: [['ac.BILL', 'rule.pay'], ['ac.BILL', 'dv.LOC']], title: 'Records Check', sub: '37th traveler today who lives at 123 Main St', ask, fx: 'pile',
 });
-// 证件干净的伪装者，话里会露出马脚：检查模式下点 Ta 说的话。找到马脚（或证件矛盾）才能测谎
-const TELL = (say, sub, ask) => ({ say, title: '可疑：话里有马脚', sub, ask });
+// Impostors with clean papers give themselves away in what they say: click their line in inspect mode.
+// The quiz only unlocks after finding a slip like this (or a discrepancy in the papers)
+const TELL = (say, sub, ask) => ({ say, title: 'Suspicious: a slip of the tongue', sub, ask });
 const RANDOM_TELLS = [
-  ['嗯嗯，yes.', '英文前面带了个“嗯嗯”', [['C', '“嗯嗯”是什么意思？'], ['E', '……Hmm hmm. American hmm.', { expr: 'nervous', sweat: true }]]],
-  ['OK 的。', '“OK 的”是中文说法', [['C', '“OK 的”？'], ['E', '……OK. Just OK.', { expr: 'nervous', sweat: true }]]],
-  ['You can you up.', '中式英语：你行你上', [['C', 'You can you up？'], ['E', '……It is an old American saying.', { expr: 'nervous', sweat: true }]]],
-  ['Good good study.', '中式英语：好好学习', [['C', 'Good good study？'], ['E', '……Day day up.', { expr: 'grin' }]]],
+  ['嗯嗯，yes.', 'A Chinese "嗯嗯" (mm-hm) before the English', [['C', 'What does "嗯嗯" mean?'], ['E', '…Hmm hmm. American hmm.', { expr: 'nervous', sweat: true }]]],
+  ['OK 的。', '"OK 的" is how Chinese people say OK', [['C', '"OK 的"?'], ['E', '…OK. Just OK.', { expr: 'nervous', sweat: true }]]],
+  ['You can you up.', 'Chinglish for "if you can do better, go"', [['C', 'You can you up?'], ['E', '…It is an old American saying.', { expr: 'nervous', sweat: true }]]],
+  ['Good good study.', 'Chinglish for "study hard"', [['C', 'Good good study?'], ['E', '…Day day up.', { expr: 'grin' }]]],
 ];
 
-const XRAY_ITEM = { cat: { icon: 'cat', at: [36, 104], label: '小猫咪.exe', key: 'xr.cat' }, keys: { icon: 'keys', at: [-36, 104], label: '搜狗输入法.exe', key: 'xr.keys' } };
+const XRAY_ITEM = { cat: { icon: 'cat', at: [36, 104], label: 'kitty.exe', key: 'xr.cat' }, keys: { icon: 'keys', at: [-36, 104], label: 'SogouPinyin.exe', key: 'xr.keys' } };
 const XRAY_ISSUE = (kind, ask) => ({
-  pairs: [[XRAY_ITEM[kind].key], [XRAY_ITEM[kind].key, 'rule.xray']], title: '后台进程',
-  sub: kind === 'cat' ? '口袋里有一只“小猫咪”（自动换 IP）' : '口袋里有一个中文输入法', ask,
+  pairs: [[XRAY_ITEM[kind].key], [XRAY_ITEM[kind].key, 'rule.xray']], title: 'Background Process',
+  sub: kind === 'cat' ? 'A "kitty" in the pocket (an IP-switching VPN)' : 'A Chinese input method in the pocket', ask,
 });
 
-// ———————————————— Day 1：直连党 ————————————————
+// ———————————————— Day 1: the direct connectors ————————————————
 
 function day1Fixed() {
   return {
     grandpa: {
       person: 'GRANDPA', voice: 100,
-      intro: [['E', '小伙子，这 AI 怎么打不开啊？']],
-      docs: [{ key: 'dv', doc: device1('115.236.20.8', '中国 · 浙江 · 电信') }], primary: 'dv',
-      ok: ['deny'], reason: 'IP 归属：中国 · 浙江',
-      issues: [REGION_ISSUE('中国 · 浙江 · 电信')],
-      react: { deny: [['E', '……那我回去问孙子。', { expr: 'sad' }]] },
+      intro: [['E', "Sonny, why won't this AI thing open?"]],
+      docs: [{ key: 'dv', doc: device1('115.236.20.8', 'China · Zhejiang · Telecom') }], primary: 'dv',
+      ok: ['deny'], reason: 'IP location: China · Zhejiang',
+      issues: [REGION_ISSUE('China · Zhejiang · Telecom')],
+      react: { deny: [['E', "…Then I'll go ask my grandson.", { expr: 'sad' }]] },
     },
     hk: {
       person: 'HK_GUY', voice: 140,
-      intro: [['E', '我开了魔法的。']],
-      docs: [{ key: 'dv', doc: device1('103.152.8.21', '中国 · 香港') }], primary: 'dv',
-      ok: ['deny'], reason: 'IP 归属：中国香港',
-      issues: [REGION_ISSUE('中国 · 香港')],
-      react: { deny: [['E', '……香港也不行？？', { expr: 'shock', hold: 1.4 }]] },
+      intro: [['E', 'Relax, my VPN "magic" is on.']],
+      docs: [{ key: 'dv', doc: device1('103.152.8.21', 'China · Hong Kong') }], primary: 'dv',
+      ok: ['deny'], reason: 'IP location: Hong Kong, China',
+      issues: [REGION_ISSUE('China · Hong Kong')],
+      react: { deny: [['E', '…Not even Hong Kong??', { expr: 'shock', hold: 1.4 }]] },
     },
     jorji: {
       person: 'JORJI', voice: 110,
-      intro: [['E', '啊，我的朋友！']],
-      docs: [{ key: 'cp', doc: new CrayonPassport() }, { key: 'dv', doc: device1('120.229.31.7', '中国 · 广东 · 移动') }],
+      intro: [['E', 'Ah, my friend!']],
+      docs: [{ key: 'cp', doc: new CrayonPassport() }, { key: 'dv', doc: device1('120.229.31.7', 'China · Guangdong · Mobile') }],
       primary: 'cp',
-      after: [['E', '美国是真的国家！']],
-      ok: ['deny'], reason: '护照是蜡笔画的',
+      after: [['E', 'America is a real country!']],
+      ok: ['deny'], reason: 'Passport is drawn in crayon',
       issues: [
         {
           pairs: [['cp.eagle', 'cp.header'], ['cp.eagle', 'cp.photo'], ['cp.header', 'cp.photo']],
-          title: '证件伪造', sub: '国徽：一只鸡     拼写：AMERCIA',
-          ask: [['C', '护照是你自己画的。'], ['E', '……它很真！', { expr: 'nervous' }]],
+          title: 'Forged Document', sub: 'Emblem: a chicken     Spelling: AMERCIA',
+          ask: [['C', 'You drew this passport yourself.'], ['E', '…It is very real!', { expr: 'nervous' }]],
         },
-        REGION_ISSUE('中国 · 广东 · 移动'),
+        REGION_ISSUE('China · Guangdong · Mobile'),
         {
-          pairs: [['cp.header', 'dv.归属']],
-          title: '信息不符', sub: '护照：美国   VS   IP：中国 · 广东',
-          ask: [['C', '你的 IP 在广东。'], ['E', '广东是美国的一个州！', { expr: 'grin' }]],
+          pairs: [['cp.header', 'dv.LOC']],
+          title: 'Discrepancy', sub: 'Passport: USA   VS   IP: China · Guangdong',
+          ask: [['C', 'Your IP is in Guangdong.'], ['E', 'Guangdong is a US state!', { expr: 'grin' }]],
         },
       ],
-      react: { deny: [['E', '……我会回来的。', { expr: 'sad', hold: 1.2 }]] },
+      react: { deny: [['E', '…I will be back.', { expr: 'sad', hold: 1.2 }]] },
     },
   };
 }
@@ -206,7 +209,7 @@ function randomDay1(valid) {
     const cc = pick(['US', 'US', 'US', 'UK', 'JP', 'DE', 'SG']);
     const co = COUNTRIES[cc];
     const [city] = pick(co.cities);
-    const loc = cc === 'SG' ? '新加坡' : `${co.name} · ${city}`;
+    const loc = cc === 'SG' ? 'Singapore' : `${co.name} · ${city}`;
     return {
       person, voice: rint(100, 190),
       intro: [['E', pick(co.hello)]],
@@ -218,15 +221,15 @@ function randomDay1(valid) {
   const loc = pick(CN_LOCS.slice(0, 7));
   return {
     person, voice: rint(100, 190),
-    intro: [['E', pick(['你好，我就问一个问题。', '听说这里能写代码？', '我是来充值的。', '同事说这个好用。'])]],
+    intro: [['E', pick(['Hi, I just have one question.', 'I heard I can write code here?', "I'm here to top up my account.", 'My coworker says this is great.'])]],
     docs: [{ key: 'dv', doc: device1(randIP(true), loc) }], primary: 'dv',
-    ok: ['deny'], reason: `IP 归属：${loc.split(' · ').slice(0, 2).join(' · ')}`,
+    ok: ['deny'], reason: `IP location: ${loc.split(' · ').slice(0, 2).join(' · ')}`,
     issues: [REGION_ISSUE(loc)],
-    react: { deny: [['E', pick(['啊？为什么？', '……我去借个号。', '那我换个节点。', '行吧。']), { expr: 'sad' }]] },
+    react: { deny: [['E', pick(['Huh? Why?', "…I'll go borrow an account.", "Then I'll switch VPN nodes.", 'Fine.']), { expr: 'sad' }]] },
   };
 }
 
-// ———————————————— Day 2：时区与语言 ————————————————
+// ———————————————— Day 2: time zone and language ————————————————
 
 function day2Fixed() {
   return {
@@ -235,59 +238,59 @@ function day2Fixed() {
       intro: [['E', 'Hello, I am 美国人。']],
       docs: [
         { key: 'pp', doc: usPassport('JOHN', 'SMITH', 'JOHN', '1990.07.04', 'LOS ANGELES') },
-        { key: 'dv', doc: device2('104.28.66.12', '美国 · 洛杉矶', 'Asia/Shanghai', 'zh-CN', 'Windows 11') },
+        { key: 'dv', doc: device2('104.28.66.12', 'USA · Los Angeles', 'Asia/Shanghai', 'zh-CN', 'Windows 11') },
       ],
       primary: 'pp', quiz: 'cn',
-      ok: ['deny', 'detain'], reason: '时区：北京时间（美国没有东八区）',
+      ok: ['deny', 'detain'], reason: 'Time zone: Beijing (the US has no UTC+8)',
       issues: [
-        TZ_ISSUE('美国', 'Asia/Shanghai', [['C', '你的时区是北京时间。'], ['E', '……这是美国东八区。', { sweat: true, expr: 'nervous', hold: 1.5 }]]),
-        LANG_ISSUE('美国', 'zh-CN', [['C', '你的系统语言是简体中文。'], ['E', '……我在学中文。', { sweat: true, expr: 'nervous' }]]),
+        TZ_ISSUE('USA', 'Asia/Shanghai', [['C', 'Your time zone is Beijing time.'], ['E', "…It's American UTC+8.", { sweat: true, expr: 'nervous', hold: 1.5 }]]),
+        LANG_ISSUE('USA', 'zh-CN', [['C', 'Your system language is Chinese.'], ['E', "…I'm learning Chinese.", { sweat: true, expr: 'nervous' }]]),
       ],
       react: { deny: [{ slip: true, hold: 0.8 }] },
     },
     brown: {
       person: 'BROWN', voice: 120,
       intro: [['E', 'Good morning，sir。']],
-      tell: TELL('Good morning，sir。', '英文里夹着全角标点（输入法没切）',
-        [['C', '你的逗号是全角的。'], ['E', '……这是美式逗号。', { expr: 'nervous', sweat: true }]]),
+      tell: TELL('Good morning，sir。', 'Full-width punctuation: Chinese keyboard still on',
+        [['C', 'Your comma is full-width.'], ['E', '…It is an American comma.', { expr: 'nervous', sweat: true }]]),
       docs: [
         { key: 'pp', doc: usPassport('BROWN', 'BROWN', 'MICHAEL', '1985.03.12', 'NEW YORK') },
-        { key: 'dv', doc: device2('64.233.160.4', '美国 · 纽约', 'America/New_York', 'en-US', 'MacBook') },
+        { key: 'dv', doc: device2('64.233.160.4', 'USA · New York', 'America/New_York', 'en-US', 'MacBook') },
       ],
       primary: 'pp', quiz: { first: 0 },
-      ok: ['detain', 'deny'], reason: 'Ta 会接“一百八一杯”', hint: '提示：用『检查』点 Ta 说的话，找马脚',
+      ok: ['detain', 'deny'], reason: 'They answer "180 a glass!"', hint: 'Tip: [Inspect] what they say to find slips',
       issues: [],
     },
     emily: {
       person: 'EMILY', voice: 190,
       intro: [['E', 'Hi 哈。']],
-      tell: TELL('Hi 哈。', '英文后面跟了个“哈”', [['C', '“哈”是什么？'], ['E', '……Ha! Ha ha.', { expr: 'nervous', sweat: true }]]),
+      tell: TELL('Hi 哈。', 'A Chinese "哈" (ha) after the English', [['C', 'What is "哈"?'], ['E', '…Ha! Ha ha.', { expr: 'nervous', sweat: true }]]),
       docs: [
         { key: 'pp', doc: usPassport('EMILY', 'JONES', 'EMILY', '1992.11.02', 'CHICAGO', 'F') },
-        { key: 'dv', doc: device2('23.94.12.77', '美国 · 芝加哥', 'America/Chicago', 'en-US', 'iPhone') },
+        { key: 'dv', doc: device2('23.94.12.77', 'USA · Chicago', 'America/Chicago', 'en-US', 'iPhone') },
       ],
       primary: 'pp', quiz: { first: 5 },
-      ok: ['detain', 'deny'], reason: 'Ta 坚持豆腐脑是咸的', hint: '提示：用『检查』点 Ta 说的话，找马脚',
+      ok: ['detain', 'deny'], reason: 'They insist tofu pudding is salty', hint: 'Tip: [Inspect] what they say to find slips',
       issues: [],
     },
     jorji: {
       person: 'JORJI', voice: 110,
-      intro: [['E', '我的朋友！这次是真护照！']],
+      intro: [['E', 'My friend! A real passport this time!']],
       docs: [
         { key: 'pp', doc: usPassport('JORJI', 'COSTAVA', 'GEORGE', '1980.02.29', 'LOS ANGELES') },
-        { key: 'dv', doc: device2('104.28.9.120', '美国 · 洛杉矶', 'America/Los_Angeles', 'zh-CN', 'Windows 11') },
+        { key: 'dv', doc: device2('104.28.9.120', 'USA · Los Angeles', 'America/Los_Angeles', 'zh-CN', 'Windows 11') },
       ],
       primary: 'pp', quiz: 'cn',
-      ok: ['deny', 'detain'], reason: '浏览器语言：zh-CN',
+      ok: ['deny', 'detain'], reason: 'Browser language: zh-CN',
       issues: [
-        LANG_ISSUE('美国', 'zh-CN', [['E', '我已经改了系统语言！', { expr: 'grin' }], ['C', '浏览器没改。'], ['E', '……', { expr: 'shock' }]]),
+        LANG_ISSUE('USA', 'zh-CN', [['E', 'I changed my system language!', { expr: 'grin' }], ['C', "But not your browser's."], ['E', '…', { expr: 'shock' }]]),
       ],
-      react: { deny: [['E', '明天见，我的朋友。', { expr: 'sad', hold: 1.1 }]] },
+      react: { deny: [['E', 'See you tomorrow, my friend.', { expr: 'sad', hold: 1.1 }]] },
     },
   };
 }
 
-// ———————————————— Day 3：付款卡与手机号 ————————————————
+// ———————————————— Day 3: payment cards and phone numbers ————————————————
 
 function day3Fixed() {
   return {
@@ -296,24 +299,24 @@ function day3Fixed() {
       intro: [['E', 'Howdy!']],
       docs: [
         { key: 'pp', doc: usPassport('TOM', 'WILSON', 'TOM', '1978.05.30', 'DENVER') },
-        { key: 'dv', doc: device2('75.164.8.31', '美国 · 丹佛', 'America/Denver', 'en-US', 'Windows 11') },
+        { key: 'dv', doc: device2('75.164.8.31', 'USA · Denver', 'America/Denver', 'en-US', 'Windows 11') },
         { key: 'ac', doc: accountCard('VISA ··4821', '123 Main St, OR', '+1 720-341-0142') },
       ],
       primary: 'pp', quiz: 'cn',
-      ok: ['deny', 'detain'], reason: '账单：俄勒冈 123 Main St（代填地址）',
-      issues: [ADDR_ISSUE([['C', '你住哪？'], ['E', '……我们是邻居。', { expr: 'nervous', sweat: true }]])],
+      ok: ['deny', 'detain'], reason: 'Billing: 123 Main St, Oregon (proxy address)',
+      issues: [ADDR_ISSUE([['C', 'Where do you live?'], ['E', "…We're neighbors.", { expr: 'nervous', sweat: true }]])],
     },
     alex: {
       person: 'ALEX', voice: 130,
       intro: [['E', 'Hey.']],
       docs: [
         { key: 'pp', doc: usPassport('ALEX', 'TAYLOR', 'ALEX', '1996.08.15', 'SEATTLE') },
-        { key: 'dv', doc: device2('45.79.21.200', '美国 · 西雅图', 'America/Los_Angeles', 'en-US', 'Android') },
+        { key: 'dv', doc: device2('45.79.21.200', 'USA · Seattle', 'America/Los_Angeles', 'en-US', 'Android') },
         { key: 'ac', doc: accountCard('VISA ··1209', '9 Elm Rd, WA', '+1 209-555-0198') },
       ],
       primary: 'pp', quiz: 'cn',
-      ok: ['deny', 'detain'], reason: '手机号是 555 接码号',
-      issues: [SMS_ISSUE('+1 209-555-0198', [['C', '这个号码今天注册了三千次。'], ['E', '这号是我花两块钱买的！', { expr: 'shock' }]])],
+      ok: ['deny', 'detain'], reason: 'Phone is a 555 rent-a-number',
+      issues: [SMS_ISSUE('+1 209-555-0198', [['C', 'This number signed up 3,000 times today.'], ['E', 'I bought this number for 2 yuan!', { expr: 'shock' }]])],
     },
     carpool: {
       person: 'CARPOOL', voice: 150,
@@ -321,40 +324,40 @@ function day3Fixed() {
       docs: [
         { key: 'pp', doc: new Passport({ country: 'UNITED STATES OF AMERICA', name: 'FAMILY, MAX', person: 'CARPOOL', mrz: 'P<USAFAMILY<<MAX<<<<<<<<<<<<',
           rows: [['DOB', '—'], ['SEX', '?'], ['ISS', 'SAN JOSE'], ['EXP', '2031.10.21']] }) },
-        { key: 'dv', doc: device2('98.207.3.44', '美国 · 圣何塞', 'America/Los_Angeles', 'en-US', 'MacBook') },
-        { key: 'ac', doc: accountCard('Max 订阅 ×1', '1 Family Way, CA', '+1 408-772-0110') },
+        { key: 'dv', doc: device2('98.207.3.44', 'USA · San Jose', 'America/Los_Angeles', 'en-US', 'MacBook') },
+        { key: 'ac', doc: accountCard('Max plan ×1', '1 Family Way, CA', '+1 408-772-0110') },
       ],
       primary: 'pp',
-      ok: ['deny', 'detain'], reason: '账号共享（拼车）：护照上有 6 个人',
+      ok: ['deny', 'detain'], reason: 'Account sharing ("carpool"): 6 people on one passport',
       issues: [{
-        pairs: [['pp.photo', 'rule.pay'], ['ac.付款', 'rule.pay'], ['pp.photo', 'pp.name'], ['pp.photo', 'ac.付款']],
-        title: '账号共享（拼车）', sub: '护照照片：6 个人   付款：Max 订阅 ×1',
-        ask: [['C', '护照上为什么有六个人？'], ['E', 'We are family.', { expr: 'smile' }]],
+        pairs: [['pp.photo', 'rule.pay'], ['ac.CARD', 'rule.pay'], ['pp.photo', 'pp.name'], ['pp.photo', 'ac.CARD']],
+        title: 'Account Sharing ("Carpool")', sub: 'Photo: 6 people   Payment: Max plan ×1',
+        ask: [['C', 'Why are six people on this passport?'], ['E', 'We are family.', { expr: 'smile' }]],
       }],
-      react: { deny: [['E', '……那我们再拼一个。', { expr: 'sad' }]] },
+      react: { deny: [['E', "…Then we'll start another carpool.", { expr: 'sad' }]] },
     },
     jorji: {
       person: 'JORJI', voice: 110,
-      intro: [['E', '我的朋友，这次全对了吧？']],
+      intro: [['E', 'My friend, all correct this time, yes?']],
       docs: [
         { key: 'pp', doc: usPassport('JORJI', 'COSTAVA', 'GEORGE', '1980.02.29', 'LOS ANGELES') },
-        { key: 'dv', doc: device2('104.28.9.120', '美国 · 洛杉矶', 'America/Los_Angeles', 'en-US', 'Windows 11') },
-        { key: 'ac', doc: accountCard('虚拟卡 ··0007', '88 Sunset Blvd, CA', '+1 213-680-0177') },
+        { key: 'dv', doc: device2('104.28.9.120', 'USA · Los Angeles', 'America/Los_Angeles', 'en-US', 'Windows 11') },
+        { key: 'ac', doc: accountCard('VIRTUAL ··0007', '88 Sunset Blvd, CA', '+1 213-680-0177') },
       ],
       primary: 'pp', quiz: 'cn',
-      ok: ['deny', 'detain'], reason: '付款卡：虚拟卡',
-      issues: [VIRTUAL_ISSUE([['C', '这张卡在哪办的？'], ['E', '……朋友给的。', { expr: 'nervous', sweat: true }]])],
-      react: { deny: [['E', '明天！明天我一定行！', { expr: 'sad' }]] },
+      ok: ['deny', 'detain'], reason: 'Payment card: virtual card',
+      issues: [VIRTUAL_ISSUE([['C', 'Where did you get this card?'], ['E', '…A friend gave it to me.', { expr: 'nervous', sweat: true }]])],
+      react: { deny: [['E', 'Tomorrow! Tomorrow I will make it!', { expr: 'sad' }]] },
     },
   };
 }
 
-// ———————————————— Day 4：疯狂星期四 ————————————————
+// ———————————————— Day 4: Crazy Thursday ————————————————
 
 function day4Fixed() {
   const usDocs = (person, surname, given, sex = 'M') => [
     { key: 'pp', doc: usPassport(person, surname, given, '1994.10.22', 'SEATTLE', sex) },
-    { key: 'dv', doc: device2(randIP(false), '美国 · 西雅图', 'America/Los_Angeles', 'en-US', 'MacBook') },
+    { key: 'dv', doc: device2(randIP(false), 'USA · Seattle', 'America/Los_Angeles', 'en-US', 'MacBook') },
     { key: 'ac', doc: accountCard(realPay(), `${pick(STREETS)}, WA`, realPhone('US', '206')) },
   ];
   return {
@@ -363,35 +366,35 @@ function day4Fixed() {
       intro: [['E', 'Hello~']],
       docs: usDocs('CAT_GIRL', 'LEE', 'SOPHIA', 'F'), primary: 'pp',
       xray: [XRAY_ITEM.cat],
-      ok: ['deny', 'detain'], reason: '口袋里有“小猫咪”',
-      issues: [XRAY_ISSUE('cat', [['C', '口袋里是什么？'], ['E', '……是我的猫。', { expr: 'nervous', sweat: true }], ['C', '你的猫会自动换 IP？']])],
+      ok: ['deny', 'detain'], reason: 'A "kitty" VPN in the pocket',
+      issues: [XRAY_ISSUE('cat', [['C', "What's in your pocket?"], ['E', "…It's my cat.", { expr: 'nervous', sweat: true }], ['C', 'Your cat switches IPs by itself?']])],
     },
     v50: {
       person: 'V50', voice: 120,
       intro: [['E', 'Hey! Crazy Thursday!']],
-      tell: TELL('Hey! Crazy Thursday!', '他知道今天是“疯狂星期四”', [['C', '你怎么知道今天是疯狂星期四？'], ['E', '……KFC 是美国的。', { expr: 'grin' }]]),
+      tell: TELL('Hey! Crazy Thursday!', 'Knows "Crazy Thursday", a Chinese KFC meme', [['C', 'How do you know about Crazy Thursday?'], ['E', '…KFC is American.', { expr: 'grin' }]]),
       docs: usDocs('V50', 'MILLER', 'JAKE'), primary: 'pp',
       quiz: { first: QUIZ_THURSDAY },
-      ok: ['detain', 'deny'], reason: 'Ta 会说“V 我 50”', hint: '提示：用『检查』点 Ta 说的话，找马脚',
+      ok: ['detain', 'deny'], reason: 'They say "V me 50" (send me 50 yuan)', hint: 'Tip: [Inspect] what they say to find slips',
       issues: [],
     },
     jorji: {
       person: 'JORJI', voice: 110,
-      intro: [['E', '我的朋友！今天全对！']],
+      intro: [['E', 'My friend! All correct today!']],
       docs: [
         { key: 'pp', doc: usPassport('JORJI', 'COSTAVA', 'GEORGE', '1980.02.29', 'LOS ANGELES') },
-        { key: 'dv', doc: device2('104.28.9.120', '美国 · 洛杉矶', 'America/Los_Angeles', 'en-US', 'Windows 11') },
+        { key: 'dv', doc: device2('104.28.9.120', 'USA · Los Angeles', 'America/Los_Angeles', 'en-US', 'Windows 11') },
         { key: 'ac', doc: accountCard('VISA ··2468', '88 Sunset Blvd, CA', '+1 213-680-0177') },
       ],
       primary: 'pp', quiz: 'cn',
       xray: [XRAY_ITEM.keys],
-      ok: ['deny', 'detain'], reason: 'X 光：搜狗输入法',
-      issues: [XRAY_ISSUE('keys', [['C', '口袋里装的什么？'], ['E', '我只用它打英文！', { expr: 'nervous', sweat: true }]])],
-      react: { deny: [['E', '……后天，后天我准备好。', { expr: 'sad' }]] },
+      ok: ['deny', 'detain'], reason: 'X-ray: Sogou Pinyin input method',
+      issues: [XRAY_ISSUE('keys', [['C', "What's in your pocket?"], ['E', 'I only use it to type English!', { expr: 'nervous', sweat: true }]])],
+      react: { deny: [['E', "…Day after tomorrow, I'll be ready.", { expr: 'sad' }]] },
     },
     hood: {
       person: 'HOOD', voice: 90,
-      intro: [['E', '……', { hold: 0.8 }]],
+      intro: [['E', '…', { hold: 0.8 }]],
       docs: usDocs('HOOD', 'DOE', 'JOHN'), primary: 'pp',
       onPlace: { pp: 'note' },
       ok: ['approve'], issues: [],
@@ -399,35 +402,35 @@ function day4Fixed() {
   };
 }
 
-// ———————————————— Day 5：蒸馏大军 ————————————————
+// ———————————————— Day 5: the distillation army ————————————————
 
 function day5Fixed() {
   const sgPass = new Passport({
     country: 'REPUBLIC OF SINGAPORE', name: 'SG TECH PTE LTD', person: 'SG_MAN', cover: [132, 38, 40], band: [160, 56, 56],
-    rows: [['TYPE', '企业'], ['REG', 'SINGAPORE'], ['EST', '2019.06.01'], ['股东', '见内页 ▼']],
+    rows: [['TYPE', 'COMPANY'], ['REG', 'SINGAPORE'], ['EST', '2019.06.01'], ['OWNER', 'SEE INSIDE ▼']],
   });
   return {
     sg: {
       person: 'SG_MAN', voice: 120,
-      intro: [['E', '我们是新加坡公司。']],
+      intro: [['E', 'We are a Singapore company.']],
       docs: [{ key: 'pp', doc: sgPass }], primary: 'pp',
       onPlace: { pp: 'nest' },
-      ok: ['deny', 'detain'], reason: '最终控股方：中国（套娃）',
+      ok: ['deny', 'detain'], reason: 'Ultimate owner: China (nesting dolls)',
       issues: [{
-        pairs: [['m4.all'], ['pp.REG', 'm4.all'], ['pp.股东', 'm4.all'], ['m4.all', 'rule.corp']],
-        title: '最终控股方：中国', sub: '新加坡 → 开曼 → 维尔京 → 香港 → 中国',
-        ask: [['C', '最里面那本是哪的？'], ['E', '……别问了。', { expr: 'nervous', sweat: true }]],
+        pairs: [['m4.all'], ['pp.REG', 'm4.all'], ['pp.OWNER', 'm4.all'], ['m4.all', 'rule.corp']],
+        title: 'Ultimate Owner: China', sub: 'Singapore → Cayman → BVI → Hong Kong → China',
+        ask: [['C', 'Where is the innermost one from?'], ['E', "…Don't ask.", { expr: 'nervous', sweat: true }]],
       }],
     },
     relay: {
       person: 'RELAY', voice: 95,
-      intro: [['E', '……', { hold: 0.7 }]],
-      docs: [{ key: 'pp', doc: makePassport('US', 'RELAY', 'ANDERSON', 'M.', '1971.09.13', 'LOS ANGELES', 'M', AccordionPassport, ['人数', '1,000']) }],
+      intro: [['E', '…', { hold: 0.7 }]],
+      docs: [{ key: 'pp', doc: makePassport('US', 'RELAY', 'ANDERSON', 'M.', '1971.09.13', 'LOS ANGELES', 'M', AccordionPassport, ['PEOPLE', '1,000']) }],
       primary: 'pp', onPlace: { pp: 'accordion' }, bribe: true,
-      ok: ['deny', 'detain'], reason: '一本护照写着 1,000 个人（中转站）',
+      ok: ['deny', 'detain'], reason: '1,000 people on one passport (API relay)',
       issues: [{
-        pairs: [['pp.人数'], ['pp.人数', 'rule.pay']], title: '持证人：1,000 人', sub: '一本护照只能一个人用',
-        ask: [['C', '持证人一共几位？'], ['E', '我们只是……拼车大一点。', { expr: 'neutral' }]],
+        pairs: [['pp.PEOPLE'], ['pp.PEOPLE', 'rule.pay']], title: 'Holders: 1,000 people', sub: 'One passport is for one person only',
+        ask: [['C', 'How many holders are there in total?'], ['E', "We're just… a bigger carpool.", { expr: 'neutral' }]],
       }],
     },
     mike: {
@@ -435,12 +438,12 @@ function day5Fixed() {
       intro: [['E', 'Hi there!']],
       docs: [
         { key: 'pp', doc: usPassport('MIKE', 'JOHNSON', 'MIKE', '1988.06.20', 'DENVER') },
-        { key: 'dv', doc: device2('101.88.12.9', '中国 · 上海', 'Asia/Shanghai', 'en-US', 'MacBook') },
+        { key: 'dv', doc: device2('101.88.12.9', 'China · Shanghai', 'Asia/Shanghai', 'en-US', 'MacBook') },
         { key: 'ac', doc: accountCard('VISA ··3305', '22 Oak St, CO', '+1 720-318-0166') },
       ],
       primary: 'pp',
-      ok: ['deny', 'detain'], reason: 'IP 在上海：只看地区，不看脸',
-      issues: [REGION_ISSUE('中国 · 上海', [['C', '你的 IP 在上海。'], ['E', "But I'm American!", { expr: 'shock' }], ['C', '规则看的是地区。']])],
+      ok: ['deny', 'detain'], reason: 'IP in Shanghai: the region, not the face',
+      issues: [REGION_ISSUE('China · Shanghai', [['C', 'Your IP is in Shanghai.'], ['E', "But I'm American!", { expr: 'shock' }], ['C', 'The rules check region, not faces.']])],
       react: { deny: [['E', 'Unbelievable.', { expr: 'sad' }]] },
     },
     grandma: {
@@ -449,53 +452,53 @@ function day5Fixed() {
       docs: [
         { key: 'pp', doc: new Passport({ country: 'UNITED STATES OF AMERICA', name: 'WONG, MEI LIN', person: 'GRANDMA', mrz: 'P<USAWONG<<MEI<LIN<<<<<<<<<<',
           rows: [['DOB', '1951.08.08'], ['SEX', 'F'], ['ISS', 'SAN FRANCISCO'], ['EXP', '2030.03.15']] }) },
-        { key: 'dv', doc: device2('73.162.4.18', '美国 · 旧金山', 'America/Los_Angeles', 'en-US', 'iPad') },
+        { key: 'dv', doc: device2('73.162.4.18', 'USA · San Francisco', 'America/Los_Angeles', 'en-US', 'iPad') },
         { key: 'ac', doc: accountCard('VISA ··8008', '1 Grant Ave, CA', '+1 415-982-0108') },
       ],
       primary: 'pp',
       ok: ['approve'], issues: [],
-      react: { approve: [['C', '欢迎入境。'], ['E', 'Thank you, dear.', { expr: 'smile' }]] },
+      react: { approve: [['C', 'Welcome in.'], ['E', 'Thank you, dear.', { expr: 'smile' }]] },
       then: 'closeup',
     },
   };
 }
 
-// ———————————————— Day 6：乔治终极版 + 结局 ————————————————
+// ———————————————— Day 6: George, final form + the ending ————————————————
 
 function day6Fixed() {
   return {
     jorji: {
       person: 'JORJI_SUIT', voice: 110, tension: true,
-      intro: [['E', '我的朋友。', { expr: 'neutral', hold: 1.3 }]],
+      intro: [['E', 'My friend.', { expr: 'neutral', hold: 1.3 }]],
       docs: [
         { key: 'pp', doc: usPassport('JORJI_SUIT', 'COSTAVA', 'GEORGE', '1980.02.29', 'LOS ANGELES') },
-        { key: 'dv', doc: device2('76.88.140.2', '美国 · 洛杉矶 · 家宽', 'America/Los_Angeles', 'en-US', 'MacBook') },
-        { key: 'ac', doc: accountCard('VISA 实体卡', '88 Sunset Blvd, CA', 'Google Voice') },
+        { key: 'dv', doc: device2('76.88.140.2', 'USA · LA · Residential', 'America/Los_Angeles', 'en-US', 'MacBook') },
+        { key: 'ac', doc: accountCard('VISA (physical card)', '88 Sunset Blvd, CA', 'Google Voice') },
       ],
       primary: 'pp',
       ok: ['approve'], issues: [],
-      react: { approve: [['E', '谢谢你，我的朋友！', { expr: 'grin' }]], deny: [['E', '我……全都对了啊！', { expr: 'shock' }]] },
+      react: { approve: [['E', 'Thank you, my friend!', { expr: 'grin' }]], deny: [['E', 'But I… got everything right!', { expr: 'shock' }]] },
       then: 'jorji5',
     },
     author: {
       person: 'AUTHOR', voice: 100, author: true,
       intro: [],
       docs: [
-        { key: 'pr', doc: new PromptPaper('做一个 Papers, Please 风格的小游戏：让 Claude 当边检员，专门揪出假装是美国人的中国用户。梗越多越好。') },
-        { key: 'dv', doc: device2('??.??.??.??', '美国东八区', 'Asia/Shanghai', 'zh-CN', 'Claude Code') },
+        { key: 'pr', doc: new PromptPaper('Make a small game in the style of Papers, Please: Claude is a border inspector who catches Chinese users pretending to be American. The more memes, the better.') },
+        { key: 'dv', doc: device2('??.??.??.??', 'USA (UTC+8)', 'Asia/Shanghai', 'zh-CN', 'Claude Code') },
       ],
       primary: 'pr',
       ok: ['approve', 'deny', 'detain'],
-      react: { approve: [['C', '我什么都没看见。', { hold: 2.0 }]] },
-      issues: [{ all: true, title: '信息不符 ×99', sub: '全部栏位' }],
+      react: { approve: [['C', "I didn't see anything.", { hold: 2.0 }]] },
+      issues: [{ all: true, title: 'Discrepancy ×99', sub: 'Every single field' }],
       then: 'ending',
     },
   };
 }
 
-// ———————————————— 随机路人 ————————————————
+// ———————————————— Random travelers ————————————————
 
-// kind：valid / cn（Day 1）/ tz / lang / cnip / hidden / virtual / oregon / sms / cat / keys
+// kind: valid / cn (Day 1) / tz / lang / cnip / hidden / virtual / oregon / sms / cat / keys
 function randomEntrant(day, kind) {
   if (day === 1) return randomDay1(kind === 'valid');
   const person = takePoolPerson();
@@ -504,7 +507,7 @@ function randomEntrant(day, kind) {
   const [city, tz0, st, code, cityEn] = pick(co.cities);
   const sex = pick(['M', 'F']);
   const pp = makePassport(cc, person, pick(co.last), pick(co.first), randDate(1960, 2004), cityEn, sex);
-  let loc = cc === 'SG' ? '新加坡' : `${co.name} · ${city}`;
+  let loc = cc === 'SG' ? 'Singapore' : `${co.name} · ${city}`;
   let tz = tz0, lang = co.lang, ip = randIP(false);
   let pay = realPay(), bill = `${pick(STREETS)}, ${st}`, phone = realPhone(cc, code);
   const spec = {
@@ -514,56 +517,56 @@ function randomEntrant(day, kind) {
   const nervous = (lines) => ['E', pick(lines), { sweat: true, expr: 'nervous' }];
   if (kind === 'tz') {
     tz = 'Asia/Shanghai';
-    spec.issues.push(TZ_ISSUE(co.name, tz, [['C', '你的时区是北京时间。'], nervous(['……我刚从北京出差回来。', '时区是什么？', '我电脑坏了。', '……这是美国东八区。'])]));
-    spec.reason = '时区：北京时间';
+    spec.issues.push(TZ_ISSUE(co.name, tz, [['C', 'Your time zone is Beijing time.'], nervous(['…I just got back from Beijing.', 'What is a time zone?', 'My computer is broken.', "…It's American UTC+8."])]));
+    spec.reason = 'Time zone: Beijing';
   } else if (kind === 'lang') {
     lang = 'zh-CN';
-    spec.issues.push(LANG_ISSUE(co.name, lang, [['C', '你的浏览器语言是简体中文。'], nervous(['……这是我奶奶的电脑。', '……我在学中文。', 'Chinese is beautiful!'])]));
-    spec.reason = '浏览器语言：zh-CN';
+    spec.issues.push(LANG_ISSUE(co.name, lang, [['C', 'Your browser language is Chinese.'], nervous(["…It's my grandma's computer.", "…I'm learning Chinese.", 'Chinese is beautiful!'])]));
+    spec.reason = 'Browser language: zh-CN';
   } else if (kind === 'cnip') {
     loc = pick(CN_LOCS.slice(0, 4));
     ip = randIP(true);
     tz = 'Asia/Shanghai';
     spec.intro = [['E', pick(["I'm American!", 'Hi, I work in China.'])]];
-    spec.issues.push(REGION_ISSUE(loc, [['C', '你的 IP 在中国。'], ['E', "But I'm American!", { expr: 'shock' }]]));
-    spec.issues.push({ pairs: [['pp.header', 'dv.归属']], title: '信息不符', sub: `国籍：美国   VS   IP：${loc.split(' · ').slice(0, 2).join(' · ')}` });
-    spec.reason = 'IP 在中国：只看地区，不看脸';
+    spec.issues.push(REGION_ISSUE(loc, [['C', 'Your IP is in China.'], ['E', "But I'm American!", { expr: 'shock' }]]));
+    spec.issues.push({ pairs: [['pp.header', 'dv.LOC']], title: 'Discrepancy', sub: `Nationality: USA   VS   IP: ${loc.split(' · ').slice(0, 2).join(' · ')}` });
+    spec.reason = 'IP in China: the region, not the face';
     spec.react = { deny: [['E', 'Unbelievable.', { expr: 'sad' }]] };
   } else if (kind === 'hidden') {
     const [say, sub, ask] = pick(RANDOM_TELLS);
     spec.intro = [['E', say]];
     spec.tell = TELL(say, sub, ask);
     spec.quiz = 'cn';
-    spec.reason = 'Ta 会接测谎题';
-    spec.hint = '提示：用『检查』点 Ta 说的话，找马脚';
+    spec.reason = 'They finish the Chinese quiz line';
+    spec.hint = 'Tip: [Inspect] what they say to find slips';
   } else if (kind === 'virtual') {
-    pay = `虚拟卡 ··${digits(4)}`;
-    spec.issues.push(VIRTUAL_ISSUE([['C', '这张卡在哪办的？'], nervous(['……网上买的，很方便。', '……朋友给的。', '它很真！'])]));
-    spec.reason = '付款卡：虚拟卡';
+    pay = `VIRTUAL ··${digits(4)}`;
+    spec.issues.push(VIRTUAL_ISSUE([['C', 'Where did you get this card?'], nervous(['…Bought it online. Very handy.', '…A friend gave it to me.', 'It is very real!'])]));
+    spec.reason = 'Payment card: virtual card';
   } else if (kind === 'oregon') {
     bill = '123 Main St, OR';
-    spec.issues.push(ADDR_ISSUE([['C', '你住哪？'], nervous(['……我们是邻居。', '俄勒冈不收税嘛。'])]));
-    spec.reason = `账单在俄勒冈，IP 在${city}`;
+    spec.issues.push(ADDR_ISSUE([['C', 'Where do you live?'], nervous(["…We're neighbors.", 'Oregon has no sales tax, you know.'])]));
+    spec.reason = `Billing in Oregon, IP in ${city}`;
   } else if (kind === 'sms') {
     phone = `+1 ${pick(['209', '310', '415', '646'])}-555-01${digits(2)}`;
-    spec.issues.push(SMS_ISSUE(phone, [['C', '这个号码今天注册了三千次。'], nervous(['……我人缘好。', '这号是我花两块钱买的！'])]));
-    spec.reason = '手机号是 555 接码号';
+    spec.issues.push(SMS_ISSUE(phone, [['C', 'This number signed up 3,000 times today.'], nervous(["…I'm very popular.", 'I bought this number for 2 yuan!'])]));
+    spec.reason = 'Phone is a 555 rent-a-number';
   } else if (kind === 'cat' || kind === 'keys') {
     spec.xray = [XRAY_ITEM[kind]];
-    spec.issues.push(XRAY_ISSUE(kind, [['C', '口袋里是什么？'], nervous(kind === 'cat' ? ['……是我的猫。', '……宠物而已。'] : ['我只用它打英文！', '……拼音好用。'])]));
-    spec.reason = kind === 'cat' ? 'X 光：小猫咪' : 'X 光：中文输入法';
+    spec.issues.push(XRAY_ISSUE(kind, [['C', "What's in your pocket?"], nervous(kind === 'cat' ? ["…It's my cat.", '…Just a pet.'] : ['I only use it to type English!', '…Pinyin is just handy.'])]));
+    spec.reason = kind === 'cat' ? 'X-ray: "kitty" VPN' : 'X-ray: Chinese input method';
   }
   if (kind !== 'valid') {
     spec.ok = ['deny', 'detain'];
     if (kind !== 'cnip') spec.quiz = 'cn';
-    if (!spec.react.deny) spec.react = { deny: [['E', pick(['……', '可恶。', '我还会回来的。', '这都能看出来？']), { expr: 'sad' }]] };
+    if (!spec.react.deny) spec.react = { deny: [['E', pick(['…', 'Dang it.', "I'll be back.", 'How did you even spot that?']), { expr: 'sad' }]] };
   }
   spec.docs = [{ key: 'pp', doc: pp }, { key: 'dv', doc: device2(ip, loc, tz, lang) }];
   if (day >= 3) spec.docs.push({ key: 'ac', doc: accountCard(pay, bill, phone) });
   return spec;
 }
 
-// 随机路人从立绘池里不重复地抽
+// Random travelers are drawn from the portrait pool without repeats
 let POOL_LEFT = [];
 function takePoolPerson() {
   if (!POOL_LEFT.length) POOL_LEFT = shuffle(Object.keys(ASSETS.people).filter((k) => !ASSETS.people[k].scripted));
@@ -577,7 +580,7 @@ FLAWS[6] = FLAWS[4];
 
 function flawed(day, n) { return shuffle(FLAWS[day].slice()).slice(0, n).map((k) => randomEntrant(day, k)); }
 
-// 当天的队伍
+// The day's queue
 function buildQueue(day) {
   POOL_LEFT = [];
   const R = (kind) => randomEntrant(day, kind);
@@ -605,12 +608,12 @@ function buildQueue(day) {
   return [f.jorji, R('valid'), R(pick(FLAWS[6])), R('hidden'), f.author];
 }
 
-// 黑话快剪：说中文黑话的拒绝，说人话的放行
+// Slang fast lane: deny anyone speaking Chinese internet slang, approve anyone speaking plain English
 const RUSH = [
-  { person: 'SLANG0', line: '家人们谁懂啊', ok: 'deny' },
+  { person: 'SLANG0', line: '家人们谁懂啊 (Fam, who gets it?!)', ok: 'deny' },
   { person: 'pool', line: 'Have a nice day!', ok: 'approve' },
-  { person: 'SLANG1', line: 'yyds', ok: 'deny' },
-  { person: 'SLANG2', line: '绝绝子', ok: 'deny' },
+  { person: 'SLANG1', line: 'yyds (pinyin for "GOAT")', ok: 'deny' },
+  { person: 'SLANG2', line: '绝绝子 (Totally slay!)', ok: 'deny' },
   { person: 'pool', line: 'Thanks, man.', ok: 'approve' },
-  { person: 'SLANG3', line: '老板说今晚必须上线', ok: 'deny' },
+  { person: 'SLANG3', line: '老板说今晚必须上线 (Boss: ship it tonight)', ok: 'deny' },
 ];

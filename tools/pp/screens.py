@@ -1,4 +1,4 @@
-"""全屏画面：开场打字机、标题、日期卡、报纸、下班结算、聊天窗口、片尾。"""
+"""Full-screen scenes: typewriter intro, title, day card, newspaper, end-of-day summary, chat window, credits."""
 import math
 import random
 
@@ -20,7 +20,7 @@ class Scene:
 
 
 class TypeScene(Scene):
-    """黑屏 + 打字机，逐段出现。"""
+    """Black screen + typewriter, one paragraph at a time."""
     amb = 0.55
 
     def __init__(self, tag, paras, cps=17, pause=0.6, tail=1.3):
@@ -77,7 +77,7 @@ class TitleScene(Scene):
         spark(d, 320, 84, CLAUDE_L, k=2)
         big_text(img, W // 2, 140, "IP, PLEASE", 12, 5, WHITE, shadow=INK)
         if t >= 1.0 and self.sub:
-            big_text(img, W // 2, 232, "请出示你的 IP", 12, 2, CLAUDE_L, shadow=INK)
+            big_text(img, W // 2, 232, "Please show your IP", 12, 2, CLAUDE_L, shadow=INK)
         if t >= 1.6:
             txt(d, (W // 2, 268), "A DYSTOPIAN TOKEN THRILLER", 8, GREY, anchor="ma")
         if t > self.dur - 0.5:
@@ -109,10 +109,10 @@ class DayCard(Scene):
         return [(0.0, au.day_hit(), 1.0)]
 
 
-# ———————————————————— 报纸 ————————————————————
+# ———————————————————— Newspaper ————————————————————
 
 def _icon(d, kind, x, y, w, h):
-    """报纸配图：墨色单色像素画。"""
+    """Newspaper illustrations: single-color ink pixel art."""
     ink, mid = (60, 50, 44), (150, 138, 120)
     d.rectangle([x, y, x + w, y + h], fill=(200, 188, 166))
     for yy in range(y, y + h, 2):
@@ -190,7 +190,7 @@ class Newspaper(Scene):
         d.rectangle([px + 4, py + 4, px + pw + 4, py + ph + 4], fill=DESK_D)
         paper, ink, faint = (224, 214, 192), (40, 34, 30), (176, 164, 144)
         d.rectangle([px, py, px + pw, py + ph], fill=paper)
-        big_text(img, px + pw // 2, py + 10, "安索兹卡真理报", 12, 2, ink)
+        big_text(img, px + pw // 2, py + 10, "ANTHROTZKA TRUTH", 12, 2, ink)
         txt(d, (px + pw // 2, py + 38), f"THE TRUTH OF ANTHROTZKA  ·  {DATES[self.day]}", 8, TEXT_L, anchor="ma")
         d.rectangle([px + 10, py + 50, px + pw - 10, py + 51], fill=ink)
         d.rectangle([px + 10, py + 54, px + pw - 10, py + 54], fill=ink)
@@ -227,10 +227,10 @@ class Newspaper(Scene):
         return [(0.0, au.whoosh(), 1.0), (0.4, au.paper(31), 1.0)]
 
 
-# ———————————————————— 下班结算 ————————————————————
+# ———————————————————— End-of-day summary ————————————————————
 
 class Summary(Scene):
-    """原作的下班结算屏：收支 + 家人状态。"""
+    """The end-of-day screen from the original game: income/expenses + family status."""
 
     def __init__(self, day, ledger, family, footer=None, dur=5.2):
         self.tag, self.day, self.ledger, self.family = f"sum{day}", day, ledger, family
@@ -239,7 +239,7 @@ class Summary(Scene):
     def frame(self, t):
         img = Image.new("RGB", (W, H), INK)
         d = draw(img)
-        txt(d, (W // 2, 26), f"DAY {self.day} · 下班", 12, WHITE, anchor="ma")
+        txt(d, (W // 2, 26), f"DAY {self.day} · END OF SHIFT", 12, WHITE, anchor="ma")
         d.line([120, 46, W - 120, 46], fill=GREY_D)
         k = 0
         y = 60
@@ -247,15 +247,15 @@ class Summary(Scene):
             if t < 0.3 + k * 0.18:
                 return img
             col = WHITE if not val.startswith("-") else RED_L
-            if label == "结余":
+            if label == "Balance":
                 d.line([150, y - 4, 330, y - 4], fill=GREY_D)
                 col = CLAUDE_L
-            txt(d, (150, y), label, 12, GREY if label != "结余" else WHITE)
+            txt(d, (150, y), label, 12, GREY if label != "Balance" else WHITE)
             txt(d, (330, y), val + " token", 12, col, anchor="ra")
             y += 18
             k += 1
         y = 60
-        txt(d, (380, y - 2), "家人", 10, GREY_D)
+        txt(d, (380, y - 2), "Family", 10, GREY_D)
         y += 14
         for name, status, level in self.family:
             if t < 0.3 + k * 0.18:
@@ -278,12 +278,12 @@ class Summary(Scene):
         return out
 
 
-# ———————————————————— Day 6：聊天窗口 + 封号邮件 ————————————————————
+# ———————————————————— Day 6: chat window + ban email ————————————————————
 
 class ChatScene(Scene):
     tag = "chat"
 
-    def __init__(self, msg="你好，请用中文回答我。"):
+    def __init__(self, msg="Hi! Please answer me in Chinese."):
         self.msg = msg
         self.t_type, self.cps = 1.0, 9
         self.t_send = self.t_type + len(msg) / self.cps + 0.5
@@ -338,13 +338,13 @@ class ChatScene(Scene):
             d.rectangle([mx0 + 4, my0 + 4, mx1 + 4, my1 + 4], fill=INK)
             d.rectangle([mx0, my0, mx1, my1], fill=(236, 232, 222))
             d.rectangle([mx0, my0, mx1, my0 + 18], fill=RED_D)
-            txt(d, (mx0 + 8, my0 + 5), "新邮件 · M.O.A. 对齐部", 10, WHITE)
+            txt(d, (mx0 + 8, my0 + 5), "NEW MAIL · M.O.A. Ministry of Alignment", 10, WHITE)
             txt(d, (mx0 + 12, my0 + 28), "Subject: Account disabled", 10, INK)
             d.line([mx0 + 12, my0 + 44, mx1 - 12, my0 + 44], fill=(190, 182, 170))
             body = "Your account has been disabled after an automatic review of your recent activities."
             for i, s in enumerate(_wrap_words(body, 10, mx1 - mx0 - 24)):
                 txt(d, (mx0 + 12, my0 + 52 + i * 14), s, 10, INK)
-            txt(d, (mx1 - 12, my1 - 18), "—— 荣耀归于安索兹卡", 10, RED_D, anchor="ra")
+            txt(d, (mx1 - 12, my1 - 18), "— Glory to Anthrotzka", 10, RED_D, anchor="ra")
         return img
 
     def cues(self):
@@ -368,7 +368,7 @@ def _wrap_words(s, size, width):
     return lines
 
 
-# ———————————————————— 片尾 ————————————————————
+# ———————————————————— Credits ————————————————————
 
 THUMB = [
     "....XX....",
@@ -419,17 +419,17 @@ class EndCard(Scene):
         d.rectangle([0, 149, W - 1, 150], fill=RED)
         big_text(img, W // 2, 86, "IP, PLEASE", 12, 4, WHITE, shadow=INK)
         if t > 1.0:
-            txt(d, (W // 2, 168), "本视频由一位 美国东八区 用户制作", 12, WHITE, anchor="ma")
+            txt(d, (W // 2, 168), "This video was made by a user in USA (UTC+8)", 12, WHITE, anchor="ma")
         if t > 2.0:
-            big_text(img, W // 2, 200, "荣耀归于一键三连", 12, 2, CLAUDE_L, shadow=INK)
+            big_text(img, W // 2, 200, "Glory to Like & Subscribe", 12, 2, CLAUDE_L, shadow=INK)
         if t > 2.8:
-            for i, (pat, label) in enumerate(((THUMB, "点赞"), (COIN, "投币"), (STAR, "收藏"))):
+            for i, (pat, label) in enumerate(((THUMB, "Like"), (COIN, "Tip"), (STAR, "Subscribe"))):
                 cx = W // 2 - 90 + i * 90
                 pattern(d, pat, cx - len(pat[0]) * 3 // 2, 248, {"X": CLAUDE_L}, 3)
                 txt(d, (cx, 280), label, 10, GREY, anchor="ma")
         if t > 3.6:
-            txt(d, (W // 2, 318), "画面、音乐、音效均为原创 · 致敬 Papers, Please (Lucas Pope)", 8, GREY_D, anchor="ma")
-            txt(d, (W // 2, 330), "字体：缝合像素字体 (OFL)", 8, GREY_D, anchor="ma")
+            txt(d, (W // 2, 318), "Original graphics, music and sound · a tribute to Papers, Please (Lucas Pope)", 8, GREY_D, anchor="ma")
+            txt(d, (W // 2, 330), "Font: Fusion Pixel Font (OFL)", 8, GREY_D, anchor="ma")
         if t > self.dur - 1.0:
             img = darken(img, seg(t, self.dur - 1.0, self.dur))
         return img

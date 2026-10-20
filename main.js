@@ -1,5 +1,5 @@
 'use strict';
-// 场景切换、输入分发、主循环。
+// Scene switching, input dispatch, main loop.
 
 function go(name) {
   scene = name; sceneT0 = now;
@@ -13,7 +13,7 @@ function go(name) {
   if (name === 'booth') startDay();
 }
 
-// ———————————————————— 输入 ————————————————————
+// ———————————————————— Input ————————————————————
 
 function toGame(ev) {
   const r = canvasEl.getBoundingClientRect();
@@ -109,14 +109,14 @@ function dragEnd(x, y) {
     if (d.owner === 'ent') { S.tut.dragged = true; onFirstPlace(d); }
     return;
   }
-  // 拖回了窗口那一侧
+  // dropped back on the window side
   if (['cit', 'strip'].includes(d.key)) { B.docs = B.docs.filter((o) => o !== d); SFX.paper(3); return; }
   if (d.key === 'note') {
     B.docs = B.docs.filter((o) => o !== d);
     SFX.paper(3);
     S.flags.shredded = true;
     B.harmlessT = now;
-    flash('纸条扔掉了。HARMLESS。');
+    flash('Note thrown away. HARMLESS.');
     return;
   }
   if (d.key === 'rule') { d.x = prev.x; d.y = prev.y; d.big = true; toggleRules(); return; }
@@ -125,10 +125,10 @@ function dragEnd(x, y) {
   if (!e || (e.phase !== 'here' && e.phase !== 'waiting')) { bounce(); return; }
   if (d.key === e.spec.primary && !decisionOf(d)) {
     bounce();
-    if (prev.big) flash('先在这本证件上盖章（右侧拉出印章栏），再还给旅客');
+    if (prev.big) flash('Stamp this document first (pull out the stamps on the right), then hand it back');
     return;
   }
-  if (!prev.big) { bounce(); return; }   // 从柜台拿起又放回柜台：原样不动
+  if (!prev.big) { bounce(); return; }   // picked up from the counter and dropped on the counter again: leave it as it was
   B.docs = B.docs.filter((o) => o !== d);
   d.returned = true;
   SFX.paper(7);
@@ -146,7 +146,7 @@ function sceneClick(x, y) {
   if ((scene === 'end' || scene === 'over') && st() > 1.5 && inBox(x, y, RESTART_BTN)) { clearSave(); newGame(); go('daycard'); }
 }
 
-// ———————————————————— 主循环 ————————————————————
+// ———————————————————— Main loop ————————————————————
 
 function update() {
   if (scene === 'booth') {
@@ -217,7 +217,7 @@ function toggleMute() {
   SFX.init();
   const m = SFX.toggleMute();
   const b = document.getElementById('mute');
-  if (b) b.textContent = m ? '声音：关' : '声音：开';
+  if (b) b.textContent = m ? 'Sound: Off' : 'Sound: On';
 }
 
 function boot() {

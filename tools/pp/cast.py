@@ -1,4 +1,4 @@
-"""全片角色表。"""
+"""The full cast."""
 from .people import Group, Person
 
 JORJI = Person(skin="tan", face="round", hair="curly", beard="mustache", hat="flatcap", hat_color=(70, 62, 56),

@@ -1,5 +1,5 @@
 'use strict';
-// 特殊桥段：黑话快剪、蒸馏大军、地址卡堆、规则书特写、Day 6 聊天封号、结局。
+// Special scenes: slang fast lane, distillation army, address-card pile, rulebook close-up, the Day 6 chat ban, the ending.
 
 function startEvent(item) {
   B.speakerT = now;
@@ -7,14 +7,14 @@ function startEvent(item) {
   if (item.type === 'clones') startClones();
 }
 
-// ———————————————————— 黑话快剪 ————————————————————
+// ———————————————————— Slang fast lane ————————————————————
 
 const RUSH_APPROVE = [250, 214, 400, 274], RUSH_DENY = [440, 214, 590, 274];
 const RUSH_TIME = 2.6;
 
 function startRush() {
   SFX.play('intercom');
-  say('C', '快速通道，开！');
+  say('C', 'Fast lane: open!');
   B.event = { type: 'rush', list: RUSH.map((r) => ({ ...r, person: r.person === 'pool' ? takePoolPerson() : r.person })), i: -1, t0: now, tFace: 0, hits: 0, wrong: 0, missed: 0, lock: true };
   later(2.6, rushNext);
 }
@@ -57,8 +57,8 @@ function rushEnd() {
   B.event = null;
   B.lastFinish = now;
   B.total += ev.list.length;
-  say('C', `快剪结束：判对 ${ev.hits}，判错 ${ev.wrong}，漏掉 ${ev.missed}。`);
-  if (ev.wrong) cite([`黑话快剪：判错 ${ev.wrong} 人`, '说中文黑话的拒绝，说人话的放行'], 0.8);
+  say('C', `Fast lane: ${ev.hits} right, ${ev.wrong} wrong, ${ev.missed} missed.`);
+  if (ev.wrong) cite([`Fast lane: ${ev.wrong} wrong call(s)`, 'Deny Chinese slang, approve plain English'], 0.8);
   if (B.idx >= B.queue.length) endDaySoon();
 }
 
@@ -67,11 +67,11 @@ function drawRush() {
   const u = ev.i < 0 ? 0 : clamp(1 - (now - ev.tFace) / RUSH_TIME);
   rect(240, 168, 600, 290, 'rgba(22,19,19,0.88)');
   outline(240, 168, 600, 290, K.CLAUDE);
-  txt(420, 174, '快速通道：说中文黑话的『拒绝』，说人话的『准予』', 10, K.CLAUDE_L, 'ma');
-  txt(420, 190, ev.i < 0 ? '准备……' : `第 ${ev.i + 1} / ${ev.list.length} 位`, 10, K.GREY, 'ma');
+  txt(420, 174, 'FAST LANE: DENY Chinese slang, APPROVE plain English', 10, K.CLAUDE_L, 'ma');
+  txt(420, 190, ev.i < 0 ? 'Get ready…' : `Traveler ${ev.i + 1} / ${ev.list.length}`, 10, K.GREY, 'ma');
   rect(250, 204, 590, 207, K.METAL_D);
   if (ev.i >= 0 && !ev.lock) rect(250, 204, 250 + Math.round(340 * u), 207, u < 0.35 ? K.RED_L : K.CLAUDE_L);
-  for (const [box, label, sub, col, colD] of [[RUSH_APPROVE, 'APPROVED', '准予', K.GREEN, K.GREEN_D], [RUSH_DENY, 'DENIED', '拒绝', K.RED, K.RED_D]]) {
+  for (const [box, label, sub, col, colD] of [[RUSH_APPROVE, 'APPROVED', 'plain English', K.GREEN, K.GREEN_D], [RUSH_DENY, 'DENIED', 'Chinese slang', K.RED, K.RED_D]]) {
     const hover = ptr.mouse && inBox(ptr.x, ptr.y, box);
     rect(box[0] + 3, box[1] + 3, box[2] + 3, box[3] + 3, K.DESK_D);
     rect(...box, colD);
@@ -81,7 +81,7 @@ function drawRush() {
   }
 }
 
-// ———————————————————— 蒸馏大军 ————————————————————
+// ———————————————————— Distillation army ————————————————————
 
 const GATE_X = 356;
 
@@ -93,7 +93,7 @@ function startClones() {
   B.event = { type: 'clones', t0: now, items, hits: 0, passed: 0, siren: SFX.play('siren', 0.55), done: false };
   B.xray.on = false;
   if (B.insp.on) setInspect(false);
-  say('C', '警报！');
+  say('C', 'Alert!');
   S.tut.sniper = true;
 }
 
@@ -120,9 +120,9 @@ function updateClones() {
       SFX.stop(ev.siren);
       B.event = null;
       B.lastFinish = now;
-      say('C', ev.passed ? `……拦下 ${ev.hits} 个，漏了 ${ev.passed} 个。` : '……限流完毕。');
+      say('C', ev.passed ? `…Stopped ${ev.hits}, missed ${ev.passed}.` : '…Rate limiting complete.');
       B.bonus += ev.hits;
-      if (ev.passed) cite([`蒸馏大军冲关：${ev.passed} 人`, '警报响起时，点击冲关的人'], 0.8);
+      if (ev.passed) cite([`Distillation army got through: ${ev.passed}`, 'When the alarm sounds, click the runners'], 0.8);
       if (B.idx >= B.queue.length) endDaySoon();
     });
   }
@@ -167,12 +167,12 @@ function drawAlarm(g) {
   setCtx(g);
   if (Math.floor(lt * 3) % 2 === 0 || lt > 2) {
     rect(150, 44, 490, 62, K.INK); outline(150, 44, 490, 62, K.RED_L);
-    txt(320, 49, '警报：检测到批量请求（蒸馏）· 点击冲关的人！', 10, K.RED_L, 'ma');
+    txt(320, 49, 'ALERT: mass requests (distillation)! Click the runners!', 10, K.RED_L, 'ma');
   }
-  txt(470, 72, `拦截 ${ev.hits}   漏网 ${ev.passed}`, 10, K.WHITE, 'ma');
+  txt(470, 72, `Blocked ${ev.hits}   Missed ${ev.passed}`, 10, K.WHITE, 'ma');
 }
 
-// ———————————————————— 同一个门牌号：地址卡堆 ————————————————————
+// ———————————————————— Same street address: the pile of address cards ————————————————————
 
 function drawEffects(g) {
   setCtx(g);
@@ -194,7 +194,7 @@ function drawEffects(g) {
   }
 }
 
-// ———————————————————— Day 5：规则书特写 ————————————————————
+// ———————————————————— Day 5: rulebook close-up ————————————————————
 
 function drawCloseup(g) {
   setCtx(g);
@@ -208,12 +208,12 @@ function drawCloseup(g) {
   rect(x0 + bw / 2 + 2, y0, x0 + bw, y0 + bh, K.PAPER);
   rect(x0 + bw / 2 - 1, y0, x0 + bw / 2 + 1, y0 + bh, K.PAPER_D);
   spark(x0 + 24, y0 + 22, K.GOLD, false);
-  txt(x0 + 36, y0 + 16, 'CLAUDE 宪法', 12, K.TEXT);
-  ['第 12 条', '入境审查依据：', 'IP 归属地、时区、', '付款地址等地区信息。'].forEach((s, i) => txt(x0 + 16, y0 + 44 + i * 16, s, 10, i ? K.TEXT_L : K.TEXT));
+  txt(x0 + 36, y0 + 16, "CLAUDE'S CONSTITUTION", 12, K.TEXT);
+  ['Article 12', 'Entry decisions are based on', 'regional data: IP location,', 'time zone, billing address.'].forEach((s, i) => txt(x0 + 16, y0 + 44 + i * 16, s, 10, i ? K.TEXT_L : K.TEXT));
   for (let i = 0; i < 5; i++) rect(x0 + 16, y0 + 140 + i * 12, x0 + bw / 2 - 20 - (i * 13) % 40, y0 + 143 + i * 12, K.PAPER_D);
-  if (lt > 0.5) ['只看地区，', '不看脸。'].forEach((s, i) => bigText(x0 + bw * 3 / 4, y0 + 64 + i * 40, s, 12, 2, K.RED_D));
-  if (lt > 1.0) txt(x0 + bw * 3 / 4, y0 + bh - 26, '（国籍、长相、姓氏都不算数）', 8, K.TEXT_L, 'ma');
-  if (lt > 1.2) txt(W / 2, H - 16, '点击继续', 8, K.GREY, 'ma');
+  if (lt > 0.5) ['Region,', 'not face.'].forEach((s, i) => bigText(x0 + bw * 3 / 4, y0 + 64 + i * 40, s, 12, 2, K.RED_D));
+  if (lt > 1.0) txt(x0 + bw * 3 / 4, y0 + bh - 26, '(Not nationality, not looks, not surname)', 8, K.TEXT_L, 'ma');
+  if (lt > 1.2) txt(W / 2, H - 16, 'Click to continue', 8, K.GREY, 'ma');
 }
 
 function closeupDone() {
@@ -221,23 +221,23 @@ function closeupDone() {
   if (B.idx >= B.queue.length) endDaySoon();
 }
 
-// ———————————————————— Day 6：乔治终极版 ————————————————————
+// ———————————————————— Day 6: George, final form ————————————————————
 
 function afterJorji5(e, dec) {
   if (dec === 'approve') {
-    // 立刻占住柜台（这 1.2 秒里不能叫下一位），1.2 秒后切到聊天画面
+    // Occupy the counter right away (nobody can be called during these 1.2 s), then cut to the chat screen
     B.cut = { type: 'chat', t0: now + 1.2 };
     later(1.2, () => SFX.ambient(false));
     return;
   }
   if (!e.spec.requeued) {
-    const again = { ...e.spec, requeued: true, intro: [['E', '我又排了一次队。我的朋友，再看一遍！', { expr: 'sad' }]] };
+    const again = { ...e.spec, requeued: true, intro: [['E', 'I queued again. Look once more, my friend!', { expr: 'sad' }]] };
     B.queue.splice(B.idx, 0, again);
   }
 }
 
-const CHAT_MSG = '你好，请用中文回答我。';
-const CHAT = { type: 1.0, cps: 9 };
+const CHAT_MSG = 'Hi! Please answer me in Chinese.';
+const CHAT = { type: 1.0, cps: 20 };
 CHAT.send = CHAT.type + [...CHAT_MSG].length / CHAT.cps + 0.5;
 CHAT.ban = CHAT.send + 1.0;
 CHAT.mail = CHAT.ban + 1.2;
@@ -262,19 +262,8 @@ function chatDone() {
   const e = newEntrant(spec, true);
   e.noJudge = true; e.expr = 'sad';
   B.ent = e;
-  const t = runSteps([['E', '我刚充的 200 刀 Max……'], ['E', '……能退吗？', { hold: 1.4 }], ['C', '下一位。', { hold: 1.1 }]], 0.4);
+  const t = runSteps([['E', 'I just paid $200 for Max…'], ['E', '…Can I get a refund?', { hold: 1.4 }], ['C', 'Next.', { hold: 1.1 }]], 0.4);
   later(t + 0.4, () => leave(e, 'deny'));
-}
-
-function wrapWords(s, size, width) {
-  const lines = [];
-  let cur = '';
-  for (const wd of s.split(' ')) {
-    const cand = (cur + ' ' + wd).trim();
-    if (tw(cand, size) > width && cur) { lines.push(cur); cur = wd; } else cur = cand;
-  }
-  if (cur) lines.push(cur);
-  return lines;
 }
 
 function drawChat() {
@@ -315,23 +304,23 @@ function drawChat() {
     rect(mx0 + 4, my0 + 4, mx1 + 4, my1 + 4, K.INK);
     rect(mx0, my0, mx1, my1, 'rgb(236,232,222)');
     rect(mx0, my0, mx1, my0 + 18, K.RED_D);
-    txt(mx0 + 8, my0 + 5, '新邮件 · M.O.A. 对齐部', 10, K.WHITE);
+    txt(mx0 + 8, my0 + 5, 'NEW MAIL · M.O.A. Ministry of Alignment', 10, K.WHITE);
     txt(mx0 + 12, my0 + 28, 'Subject: Your account has been suspended', 10, K.INK);
     rect(mx0 + 12, my0 + 44, mx1 - 12, my0 + 44, 'rgb(190,182,170)');
-    wrapWords('Your account has been suspended after an automatic review of your recent activities.', 10, mx1 - mx0 - 24)
+    wrap('Your account has been suspended after an automatic review of your recent activities.', 10, mx1 - mx0 - 24)
       .forEach((s, i) => txt(mx0 + 12, my0 + 52 + i * 14, s, 10, K.INK));
-    txt(mx1 - 12, my1 - 18, '—— 荣耀归于安索兹卡', 10, K.RED_D, 'ra');
+    txt(mx1 - 12, my1 - 18, '— Glory to Anthrotzka', 10, K.RED_D, 'ra');
   }
-  if (lt > CHAT.mail + 1) txt(W - 8, H - 14, '点击继续', 8, K.GREY, 'ra');
+  if (lt > CHAT.mail + 1) txt(W - 8, H - 14, 'Click to continue', 8, K.GREY, 'ra');
 }
 
-// ———————————————————— 结局：下一位 ————————————————————
+// ———————————————————— The ending: next, please ————————————————————
 
 function afterAuthor(dec) {
   S.flags.ending = dec === 'approve' ? 'approve' : 'deny';
   if (dec === 'approve') {
     B.allTokens = true;
-    later(0.6, () => printDoc(new Citation(['放行未授权地区旅客', '（本游戏作者）', '扣除本月全部 token']), 1.4, 'cit'));
+    later(0.6, () => printDoc(new Citation(['Approved a traveler from an unsupported region', '(the author of this game)', "Fine: all of this month's tokens"]), 1.4, 'cit'));
     later(2.4, endDaySoon);
   } else {
     later(1.5, () => go('erased'));
@@ -339,8 +328,8 @@ function afterAuthor(dec) {
 }
 
 const ERASED = [
-  ['你拒绝了本游戏的作者。'],
-  ['因此，这个游戏从未被做出来。'],
-  ['……', '（那你刚才玩的是什么？）'],
-  ['荣耀归于安索兹卡。'],
+  ['You denied the author of this game.'],
+  ['And so, this game was never made.'],
+  ['…', '(Then what were you just playing?)'],
+  ['Glory to Anthrotzka.'],
 ];

@@ -1,7 +1,7 @@
-"""检查亭场景。
+"""The inspection booth scene.
 
-用法：先用 Case 的方法按顺序“写剧本”（叫号、进场、说话、递证件、检查、盖章、离开……），
-每个方法会自动推进内部时间并记录鼠标路径和音效；渲染时 frame(t) 按时间轴还原画面。
+Usage: first "write the script" in order with Case's methods (call, enter, talk, hand over papers, inspect, stamp, leave...);
+each method advances the internal clock and records mouse paths and sounds; when rendering, frame(t) rebuilds the picture from the timeline.
 """
 import math
 import random
@@ -42,10 +42,10 @@ def center(box):
     return ((box[0] + box[2]) // 2, (box[1] + box[3]) // 2)
 
 
-# ———————————————————— 静态背景 ————————————————————
+# ———————————————————— Static background ————————————————————
 
 def tiny_person(d, x, y, coat, hat=None, step=0, skin=(198, 152, 120), back=False):
-    """(x, y) 为脚底中心。"""
+    """(x, y) is the center of the feet."""
     d.line([x - 3, y + 1, x + 3, y + 1], fill=GROUND_D)
     d.rectangle([x - 2, y - 3, x - 1, y - (1 if step else 0)], fill=OUTLINE)
     d.rectangle([x + 1, y - 3, x + 2, y - (0 if step else 1)], fill=OUTLINE)
@@ -83,7 +83,7 @@ def draw_exterior(img):
         d.line([x, 7, x, 37], fill=WALL_D)
     d.rectangle([0, 41, W - 1, 42], fill=GROUND_D)
     banner(d, BANNER1_X, 13, "HELPFUL · HONEST · HARMLESS")
-    banner(d, 392, 13, "荣耀归于 ANTHROTZKA")
+    banner(d, 392, 13, "GLORY TO ANTHROTZKA")
     d.ellipse([318, 9, 344, 35], fill=WALL_D)
     d.ellipse([320, 11, 342, 33], fill=(70, 50, 44))
     spark(d, 331, 22, CLAUDE)
@@ -92,9 +92,9 @@ def draw_exterior(img):
         d.line([x, 111, x + 6, 111], fill=ROAD_L)
     for px in (440, 500):
         d.rectangle([px, 62, px + 1, 76], fill=OUTLINE)
-    d.rectangle([428, 50, 512, 64], fill=(196, 184, 160))
-    d.rectangle([428, 64, 512, 65], fill=OUTLINE)
-    txt(d, (470, 52), "仅限支持地区", 10, TEXT, anchor="ma")
+    d.rectangle([404, 50, 536, 64], fill=(196, 184, 160))
+    d.rectangle([404, 64, 536, 65], fill=OUTLINE)
+    txt(d, (470, 52), "SUPPORTED REGIONS ONLY", 10, TEXT, anchor="ma")
     for lx in (598, 624):
         d.line([lx, 30, lx, 96], fill=WALL_D, width=2)
     d.line([598, 60, 624, 90], fill=WALL_D)
@@ -160,13 +160,13 @@ def draw_desk_static(img):
         y += rng.randint(5, 10)
     d.rectangle([220, 128, W - 1, 131], fill=DESK_L)
     d.rectangle([PRINT_X - 4, 128, PRINT_X + 132, 130], fill=INK)
-    # 规则书（Claude 宪法）
+    # The rulebook (Claude's Constitution)
     bx, by = 500, 306
     d.rectangle([bx + 2, by + 2, bx + 58, H - 1], fill=DESK_D)
     d.rectangle([bx, by, bx + 56, H - 1], fill=BOOK)
     d.rectangle([bx, by, bx + 4, H - 1], fill=(70, 48, 38))
     d.rectangle([bx + 7, by + 3, bx + 53, H - 1], outline=BOOK_L)
-    txt(d, (bx + 30, by + 8), "宪法", 12, GOLD, anchor="ma")
+    txt(d, (bx + 30, by + 8), "CLAUDE", 12, GOLD, anchor="ma")
     txt(d, (bx + 30, by + 24), "RULEBOOK", 8, BOOK_L, anchor="ma")
     spark(d, bx + 30, by + 42, GOLD, big=False)
 
@@ -206,7 +206,7 @@ def glass():
     return g
 
 
-# ———————————————————— X 光 ————————————————————
+# ———————————————————— X-ray ————————————————————
 
 CAT_ICON = [
     "X.........X",
@@ -262,11 +262,11 @@ def xray_view(spr, ex, lt, items, lit):
     if scan < WIN_H:
         d.rectangle([0, scan, WIN_W, WIN_H], fill=XRAY_BG)
         d.line([0, scan, WIN_W, scan], fill=XRAY_L, width=2)
-    txt(d, (4, 3), "X-RAY · 后台进程扫描", 8, XRAY_L)
+    txt(d, (4, 3), "X-RAY · BACKGROUND PROCESS SCAN", 8, XRAY_L)
     return win
 
 
-# ———————————————————— 证件状态 ————————————————————
+# ———————————————————— Document state ————————————————————
 
 class DocState:
     def __init__(self, doc, t0, start, on_counter=True):
@@ -312,7 +312,7 @@ def default_slot(doc, has_account):
     if isinstance(doc, (Passport, CrayonPassport, PromptPaper)):
         return SLOT_PASSPORT
     if isinstance(doc, Card):
-        if doc.title == "账户卡":
+        if doc.title == "ACCOUNT CARD":
             return (236, 286)
         return (236, 176) if has_account else (236, 198)
     return (300, 200)
@@ -329,7 +329,7 @@ class Ctx:
         self.d = draw(img)
 
 
-# ———————————————————— 剧本构建器 + 渲染 ————————————————————
+# ———————————————————— Script builder + rendering ————————————————————
 
 class Case:
     def __init__(self, tag, day, clock=(6, 0), voice=125, seed=0, fight=None):
@@ -350,12 +350,12 @@ class Case:
         self.fight = fight
         self.harmless = None
         self.amb = 1.0
-        self.amb_dips = []      # (t0, t1, 增益)：环境声压低
+        self.amb_dips = []      # (t0, t1, gain): duck the ambience
         self.ext_hidden = False
         self.dur = None
         self._imgs = {}
 
-    # —— 基础 ——
+    # —— Basics ——
     def cue(self, t, x, g=1.0):
         self.cue_list.append((t, x, g))
 
@@ -389,14 +389,14 @@ class Case:
     def hide_cursor(self, dur):
         self.cursor_hidden.append((self.t, self.t + dur))
 
-    # —— 叫号、进场、说话 ——
+    # —— Calling, entering, talking ——
     def call_next(self, line=True):
         self.t = max(self.t, 0.15)
         self.click(SPEAKER)
         self.speaker_t = self.t
         self.cue(self.t + 0.03, au.intercom())
         if line:
-            self.lines.append((self.t + 0.05, "C", "下一位！"))
+            self.lines.append((self.t + 0.05, "C", "Next!"))
         self.t += 0.35
         return self
 
@@ -431,11 +431,11 @@ class Case:
         self.t += hold if hold is not None else max(0.9, 0.4 + 0.085 * len(text))
         return self
 
-    # —— 证件 ——
+    # —— Papers ——
     def hand(self, *docs, heavy=False, slots=None):
         t0 = self.t
         self.cue(t0, au.paper(self.seed))
-        has_acct = any(isinstance(dc, Card) and dc.title == "账户卡" for dc in docs)
+        has_acct = any(isinstance(dc, Card) and dc.title == "ACCOUNT CARD" for dc in docs)
         states = []
         for i, dc in enumerate(docs):
             ds = DocState(dc, t0, (48 + i * 24, 265))
@@ -448,7 +448,7 @@ class Case:
         return states
 
     def place(self, doc, pos):
-        """证件凭空出现在桌上（比如从护照里掉出来）。"""
+        """A document appears on the desk out of nowhere (e.g. it falls out of a passport)."""
         ds = DocState(doc, self.t, pos, on_counter=False)
         self.docs.append(ds)
         self.cue(self.t, au.paper(self.seed + 7))
@@ -470,7 +470,7 @@ class Case:
         self.t += 0.45 if heavy else 0.06
 
     def discard(self, ds):
-        """把纸条拖出桌面扔掉。"""
+        """Drag the note off the desk to throw it away."""
         self.drag(ds, (W + 10, ds.slot[1] + 20), dur=0.35)
         ds.t_gone = self.t
 
@@ -516,7 +516,7 @@ class Case:
         self.t += 1.9
         return self
 
-    # —— 检查模式 ——
+    # —— Inspect mode ——
     def inspect_on(self):
         self.click(center(INSPECT_BTN))
         self.insp.append([self.t, None])
@@ -539,7 +539,7 @@ class Case:
         return self._select(lambda t, b=box: b, box)
 
     def light(self, pairs):
-        """一次性点亮很多栏位（结局用），并两两连线。"""
+        """Light up many fields at once (for the ending) and connect them pairwise."""
         idx = []
         for ds, f in pairs:
             idx.append(len(self.sels))
@@ -563,7 +563,7 @@ class Case:
         return self
 
     def scan(self, targets, each=0.32):
-        """鼠标在一堆栏位上来回扫，但什么都挑不出来。"""
+        """The mouse sweeps back and forth over the fields but finds nothing wrong."""
         for ds, f in targets:
             self.t += each
             self.go(center(ds.field_box(f, self.t, self.cursor_at)))
@@ -580,7 +580,7 @@ class Case:
                     item[1] = self.t
         self.cue(self.t, au.inspect_off())
 
-    # —— 盖章 ——
+    # —— Stamping ——
     def stamp(self, kind="deny", ds=None, hover=None):
         ds = ds or self.primary()
         mx, my = MARK_XY[kind]
@@ -610,13 +610,13 @@ class Case:
         return self
 
     def slam(self, kind="deny"):
-        """快剪用：一个巨大的章直接拍在窗口上。"""
+        """For the fast lane: a giant stamp slammed right onto the window."""
         self.slams.append((self.t, kind))
         self.cue(self.t, au.stamp(kind))
         self.shakes.append((self.t, 4))
         self.t += 0.45
 
-    # —— 打印机、X 光 ——
+    # —— Printer, X-ray ——
     def printout(self, doc, grow=0.9, x=PRINT_X):
         p = [self.t, self.t + grow, doc, x, None]
         self.prints.append(p)
@@ -654,7 +654,7 @@ class Case:
                     item[1] = self.dur + 1
         return self
 
-    # —— 时间轴查询 ——
+    # —— Timeline queries ——
     def cursor_at(self, t):
         pts = self.cursor
         if t <= pts[0][0]:
@@ -693,7 +693,7 @@ class Case:
             return round(lerp(WIN_CX, -160 if self.leave_dir == "left" else 360, u * u)) // 2 * 2
         return x
 
-    # ———————————————————— 渲染 ————————————————————
+    # ———————————————————— Rendering ————————————————————
 
     def frame(self, t):
         ctx = Ctx(static_layer().copy(), t, self)
@@ -761,8 +761,8 @@ class Case:
             d.line([x, y, x + rng.randint(-6, 6), y + rng.randint(-6, 6)], fill=OUTLINE, width=2)
         for _ in range(3):
             spark(d, 246 + rng.randint(0, 44), 80 + rng.randint(0, 24), (230, 210, 120), big=False)
-        word = "甜！" if int(t * 2.5) % 2 else "咸！"
-        bx = 236 if word == "甜！" else 286
+        word = "SWEET!" if int(t * 2.5) % 2 else "SALTY!"
+        bx = 236 if word == "SWEET!" else 286
         d.rectangle([bx, 64, bx + 24, 77], fill=WHITE)
         d.rectangle([bx, 64, bx + 24, 77], outline=INK)
         txt(d, (bx + 12, 66), word, 10, INK, anchor="ma")
@@ -835,7 +835,7 @@ class Case:
             lit = self.detain_click is not None and self.detain_click <= t < self.detain_click + 0.6
             d.rectangle(DETAIN_BTN, fill=RED if lit else RED_D)
             d.rectangle(DETAIN_BTN, outline=OUTLINE)
-            txt(d, (center(DETAIN_BTN)[0], DETAIN_BTN[1] + 2), "拘留", 10, WHITE, anchor="ma")
+            txt(d, (center(DETAIN_BTN)[0], DETAIN_BTN[1] + 2), "Detain", 10, WHITE, anchor="ma")
 
     def _docs(self, ctx):
         t = ctx.t
@@ -881,10 +881,10 @@ class Case:
     def _buttons(self, ctx):
         t = ctx.t
         on = any(a <= t < b for a, b in self.insp)
-        _button(ctx.d, INSPECT_BTN, "?", "检查", on)
+        _button(ctx.d, INSPECT_BTN, "?", "Inspect", on)
         if self.day >= 4:
             on = any(x[0] <= t < x[1] for x in self.xrays)
-            _button(ctx.d, XRAY_BTN, "X", "X光", on)
+            _button(ctx.d, XRAY_BTN, "X", "X-ray", on)
 
     def _inspect(self, ctx):
         t = ctx.t
@@ -924,7 +924,7 @@ class Case:
                     hover = self.cursor_at(t)[0] > ASK_BTN[0] - 4
                     d.rectangle(ASK_BTN, fill=RED if hover else RED_D)
                     d.rectangle(ASK_BTN, outline=RED_L)
-                    txt(d, (center(ASK_BTN)[0], 145), "询问", 12, WHITE, anchor="ma")
+                    txt(d, (center(ASK_BTN)[0], 145), "Ask", 12, WHITE, anchor="ma")
         ctx.set(dark)
 
     def _cursor(self, ctx):
@@ -982,7 +982,7 @@ def _button(d, box, glyph, label, active):
 
 
 DATES = {1: "2026.10.19", 2: "2026.10.20", 3: "2026.10.21", 4: "2026.10.22", 5: "2026.10.23", 6: "2026.10.24"}
-WEEKDAYS = {1: "星期一", 2: "星期二", 3: "星期三", 4: "星期四", 5: "星期五", 6: "星期六"}
+WEEKDAYS = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday"}
 
 
 def _date(day):
