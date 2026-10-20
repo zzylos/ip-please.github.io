@@ -1,5 +1,5 @@
 'use strict';
-// 证件和纸张（移植自 pp/docs.py）。每种证件知道自己的尺寸、怎么画、各栏位的相对坐标（检查模式用）。
+// Documents and papers (ported from pp/docs.py). Each document knows its size, how to draw itself, and where its fields are (for inspect mode).
 
 function docShadow(x, y, w, h) { rect(x + 2, y + 2, x + w + 1, y + h + 1, K.DESK_D); }
 
@@ -10,6 +10,8 @@ class Passport {
     this.icon = ['book', cover];
     this.fields = { header: [3, 3, 172, 16], name: [56, 20, 172, 34], photo: [9, 22, 50, 73] };
     rows.forEach(([k], i) => { this.fields[k] = [56, 40 + i * 12, 150, 51 + i * 12]; });
+    // Values start at x = 80, or further right when a row label is longer (OWNER, PEOPLE)
+    this.valueX = Math.max(80, 64 + Math.max(...rows.map(([k]) => tw(k, 8))));
   }
 
   draw(x, y) {
@@ -25,16 +27,16 @@ class Passport {
     txt(x + 58, y + 22, this.name, tw(this.name, 12) > 112 ? 10 : 12, K.TEXT);
     this.rows.forEach(([k, v], i) => {
       txt(x + 58, y + 42 + i * 12, k, 8, K.TEXT_L);
-      txt(x + 80, y + 41 + i * 12, v, tw(v, 10) > 90 ? 8 : 10, K.TEXT);
+      txt(x + this.valueX, y + 41 + i * 12, v, tw(v, 10) > 170 - this.valueX ? 8 : 10, K.TEXT);
     });
     spr('emblem', x + 18, y + 78);
     if (this.mrz) txt(x + 8, y + h - 15, this.mrz, 8, K.TEXT_L);
   }
 }
 
-// 中转站本站：一本护照上写着 1,000 个名字，放到桌上会像手风琴一样往下展开
-const HOLDER_NAMES = ['KEVIN', '小王', 'TONY', '阿强', 'LUCY', '老张', 'MOMO', '大刘', 'JACK', '小美', 'ERIC', '阿杰',
-  'AMY', '胖虎', 'LEO', '小林', 'MIA', '二狗', 'SAM', '阿珍', 'BEN', '老李', 'IVY', '小赵'];
+// The relay operator: one passport with 1,000 names on it that unfolds downward like an accordion when put on the desk
+const HOLDER_NAMES = ['KEVIN', 'XIAO WANG', 'TONY', 'A-QIANG', 'LUCY', 'LAO ZHANG', 'MOMO', 'DA LIU', 'JACK', 'XIAO MEI', 'ERIC', 'A-JIE',
+  'AMY', 'PANG HU', 'LEO', 'XIAO LIN', 'MIA', 'ER GOU', 'SAM', 'A-ZHEN', 'BEN', 'LAO LI', 'IVY', 'XIAO ZHAO'];
 
 class AccordionPassport extends Passport {
   constructor(opts) {
@@ -45,7 +47,7 @@ class AccordionPassport extends Passport {
 
   draw(x, y) {
     if (this.unfoldT !== null) {
-      // 下面放不下就往上展开
+      // Unfold upward if there is no room below
       const up = H - (y + this.h) < 100;
       const sx = x + 12, w = 152;
       const L = Math.round(lerp(0, up ? 150 : 210, easeOut(seg(now, this.unfoldT, this.unfoldT + 2))));
@@ -62,7 +64,7 @@ class AccordionPassport extends Passport {
   }
 }
 
-// 乔治老哥用蜡笔画的“美国护照”（整张预渲染）
+// George's "American passport", drawn in crayon (pre-rendered as one sprite)
 class CrayonPassport {
   constructor() {
     this.w = 176; this.h = 116;
@@ -76,7 +78,7 @@ class CrayonPassport {
   }
 }
 
-// 合上的护照封面（套娃用）
+// A closed passport cover (for the nesting dolls)
 class MiniPassport {
   constructor(w, h, cover, label) {
     Object.assign(this, { w, h, cover, label });
@@ -99,13 +101,13 @@ class MiniPassport {
   }
 }
 
-// 设备入境卡 / 账户卡：标题 + 若干行 label/value
+// Device entry card / account card: a title plus label/value rows
 class Card {
-  constructor(rows, { title = '设备入境卡', sub = 'DEVICE ENTRY', color = C.PINK, colorD = C.PINK_D, valueX = 38, seal } = {}) {
+  constructor(rows, { title = 'DEVICE ENTRY CARD', sub = 'M.O.A.', color = C.PINK, colorD = C.PINK_D, valueX = 46, seal } = {}) {
     this.rows = rows; this.title = title; this.sub = sub;
     this.color = rgb(color); this.colorD = rgb(colorD); this.valueX = valueX;
     this.seal = seal === undefined ? rows.length >= 4 : seal;
-    this.w = 152;
+    this.w = 168;
     this.h = 20 + 14 * rows.length + (this.seal ? 14 : 6);
     this.icon = ['card', color];
     this.fields = {};
@@ -132,11 +134,11 @@ class Card {
 }
 
 function accountCard(pay, bill, phone) {
-  return new Card([['付款', pay], ['账单', bill], ['手机', phone]],
-    { title: '账户卡', sub: 'ACCOUNT', color: C.SAGE, colorD: C.SAGE_D, seal: false });
+  return new Card([['CARD', pay], ['BILL', bill], ['PHONE', phone]],
+    { title: 'ACCOUNT CARD', sub: 'M.O.A.', color: C.SAGE, colorD: C.SAGE_D, seal: false });
 }
 
-// 夹在护照里的小纸条（地下中转联盟）
+// A small note tucked into a passport (the Underground Relay Alliance)
 class Note {
   constructor(lines) {
     this.lines = lines;
@@ -155,12 +157,13 @@ class Note {
   }
 }
 
-// 对齐部警告单（原作的罚单）
+// M.O.A. warning slip (the citation from the original game)
 class Citation {
   constructor(lines) {
-    this.lines = lines;
     this.w = 168;
-    this.h = 26 + 13 * lines.length + 6;
+    // Long lines wrap; the last entry (the fine) is printed in red
+    this.lines = lines.flatMap((s, i) => wrap(s, 10, this.w - 14).map((t) => ({ s: t, last: i === lines.length - 1 })));
+    this.h = 26 + 13 * this.lines.length + 6;
     this.icon = ['card', [226, 184, 176]];
     this.fields = {};
   }
@@ -169,15 +172,15 @@ class Citation {
     docShadow(x, y, this.w, this.h);
     rect(x, y, x + this.w - 1, y + this.h - 1, 'rgb(226,184,176)');
     rect(x, y, x + this.w - 1, y + 16, K.RED_D);
-    txt(x + 6, y + 4, 'M.O.A. 警告单', 10, K.WHITE);
+    txt(x + 6, y + 4, 'M.O.A. WARNING', 10, K.WHITE);
     txt(x + this.w - 6, y + 6, 'CITATION', 8, 'rgb(226,184,176)', 'ra');
-    this.lines.forEach((s, i) => {
-      txt(x + 8, y + 22 + i * 13, s, tw(s, 10) > this.w - 14 ? 8 : 10, i === this.lines.length - 1 ? K.RED_D : K.TEXT);
+    this.lines.forEach(({ s, last }, i) => {
+      txt(x + 8, y + 22 + i * 13, s, tw(s, 10) > this.w - 14 ? 8 : 10, last ? K.RED_D : K.TEXT);
     });
   }
 }
 
-// 打印机吐出来的长纸条（号码查询）
+// The long slip that comes out of the printer (number lookup)
 class PrintStrip {
   constructor(header, rows) {
     this.header = header; this.rows = rows;
@@ -201,7 +204,7 @@ class PrintStrip {
   }
 }
 
-// 结局：旅客递上来的不是护照，是一段 prompt
+// The ending: what this traveler hands over is not a passport, it's a prompt
 class PromptPaper {
   constructor(text) {
     this.lines = wrap(text, 10, 158);
@@ -214,12 +217,12 @@ class PromptPaper {
     docShadow(x, y, this.w, this.h);
     rect(x, y, x + this.w - 1, y + this.h - 1, 'rgb(236,234,226)');
     rect(x + 3, y + 3, x + this.w - 4, y + 16, 'rgb(120,116,110)');
-    txt(x + 8, y + 6, 'PROMPT · 用户请求', 8, K.WHITE);
+    txt(x + 8, y + 6, 'PROMPT · USER REQUEST', 8, K.WHITE);
     this.lines.forEach((s, i) => txt(x + 9, y + 22 + i * 13, s, 10, K.INK));
   }
 }
 
-// 同一个门牌号：桌上摞起来的地址卡
+// Same street address: the pile of address cards on the desk
 function drawAddressCard(x, y) {
   docShadow(x, y, 96, 34);
   rect(x, y, x + 95, y + 33, K.PAPER_D);
@@ -228,18 +231,18 @@ function drawAddressCard(x, y) {
   txt(x + 6, y + 20, 'PORTLAND, OR', 8, K.TEXT_L);
 }
 
-// 《Claude 宪法》：当天的入境规则，分两页。每条规则是一个可在检查模式里点选的栏位。
+// "Claude's Constitution": the day's entry rules, on two pages. Each rule is a field that can be selected in inspect mode.
 const RULE_TABLE = [
-  ['美国', 'America/*', 'en-US'], ['英国', 'Europe/London', 'en-GB'], ['日本', 'Asia/Tokyo', 'ja-JP'],
-  ['德国', 'Europe/Berlin', 'de-DE'], ['新加坡', 'Asia/Singapore', 'en-SG'],
+  ['USA', 'America/*', 'en-US'], ['UK', 'Europe/London', 'en-GB'], ['Japan', 'Asia/Tokyo', 'ja-JP'],
+  ['Germany', 'Europe/Berlin', 'de-DE'], ['Singapore', 'Asia/Singapore', 'en-SG'],
 ];
 const RULES = [
-  { day: 1, page: 0, key: 'region', head: '§1 仅限支持地区入境', subs: ['支持：美国  英国  日本  德国  新加坡', '不支持：中国大陆  中国香港  中国澳门'] },
-  { day: 2, page: 0, key: 'tz', head: '§2 时区、语言须与 IP 归属一致', subs: RULE_TABLE.map((r) => r.join('|')) },
-  { day: 2, page: 0, key: 'quiz', head: '§3 测谎露馅者：拘留', subs: ['有疑点才能测谎（证件矛盾 / 话里的马脚）'] },
-  { day: 3, page: 1, key: 'pay', head: '§4 付款、账单、手机须真实', subs: ['禁止：虚拟卡、555 接码手机号', '账单所在州须与 IP 归属一致', '禁止拼车：一本护照只能一个人用'] },
-  { day: 4, page: 1, key: 'xray', head: '§5 后台进程须干净', subs: ['禁止“小猫咪”、中文输入法（『X光』）'] },
-  { day: 5, page: 1, key: 'corp', head: '§6 中资控股过半：一律禁止', subs: ['无论公司注册在哪（套娃要拆到底）'] },
+  { day: 1, page: 0, key: 'region', head: '§1 Supported regions only', subs: ['Supported: USA UK Japan Germany Singapore', 'Not supported: China, Hong Kong, Macau'] },
+  { day: 2, page: 0, key: 'tz', head: '§2 Time zone, language match IP', subs: RULE_TABLE.map((r) => r.join('|')) },
+  { day: 2, page: 0, key: 'quiz', head: '§3 Fail the quiz: detain', subs: ['Quiz only with a reason: papers or speech'] },
+  { day: 3, page: 1, key: 'pay', head: '§4 Real payment, billing, phone', subs: ['Banned: virtual cards, 555 SMS numbers', 'Billing state must match IP location', 'No carpools: one passport, one person'] },
+  { day: 4, page: 1, key: 'xray', head: '§5 Clean background processes', subs: ['No "kitty" VPN, no Chinese input [X-ray]'] },
+  { day: 5, page: 1, key: 'corp', head: '§6 Mostly Chinese-owned: banned', subs: ['Wherever registered (open every doll)'] },
 ];
 
 class Rulebook {
@@ -256,7 +259,7 @@ class Rulebook {
         L.push({ s: r.head, size: 10, col: r.day === day ? K.RED_D : K.TEXT, key: r.key, isNew: r.day === day });
         for (const s of r.subs) L.push({ s, size: 8, col: K.TEXT_L, key: r.key });
       }
-      if (p === this.npages - 1) L.push({ s: '§12 只看地区，不看脸', size: 8, col: K.TEXT_L, key: null });
+      if (p === this.npages - 1) L.push({ s: '§12 Judge the region, not the face', size: 8, col: K.TEXT_L, key: null });
       let y = 22;
       const fields = {};
       for (const row of L) {
@@ -271,7 +274,7 @@ class Rulebook {
     }
     this.h = Math.max(...this.pages.map((p) => p.h));
     this.page = this.npages - 1;
-    this.tab = [this.w - 52, 3, this.w - 4, 16];
+    this.tab = [this.w - 64, 3, this.w - 4, 16];
   }
 
   get fields() { return this.pages[this.page].fields; }
@@ -284,10 +287,10 @@ class Rulebook {
     rect(x, y, x + w - 1, y + h - 1, K.BOOK);
     rect(x + 3, y + 3, x + w - 4, y + h - 4, K.PAPER);
     rect(x + 3, y + 3, x + w - 4, y + 16, K.BOOK_L);
-    txt(x + 8, y + 5, '宪法 · 入境规则', 10, K.PAPER);
+    txt(x + 8, y + 5, 'CONSTITUTION', 10, K.PAPER);
     if (this.npages > 1) {
       rect(x + this.tab[0], y + this.tab[1], x + this.tab[2], y + this.tab[3], K.BOOK);
-      txt(x + this.tab[2] - 4, y + 7, `第${this.page + 1}/${this.npages}页 ▶`, 8, K.PAPER, 'ra');
+      txt(x + this.tab[2] - 4, y + 7, `PAGE ${this.page + 1}/${this.npages} ▶`, 8, K.PAPER, 'ra');
     } else {
       txt(x + w - 8, y + 7, `DAY ${this.day}`, 8, K.PAPER, 'ra');
     }
@@ -309,7 +312,7 @@ class Rulebook {
   }
 }
 
-// 柜台上的小图标
+// Small icons on the counter
 function smallIcon(kind, color, x, y) {
   if (kind === 'book') {
     rect(x, y, x + 18, y + 12, K.INK);

@@ -1,12 +1,12 @@
 'use strict';
-// 绘图层：调色板、像素图元、像素字、精灵。坐标约定和 pp/base.py 一致（矩形用闭区间）。
+// Drawing layer: palette, pixel primitives, pixel text, sprites. Coordinates follow pp/base.py (rectangles are inclusive).
 
 const W = 640, H = 360;
 
 const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
 const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-// —— 调色板：灰褐、低饱和；只有红章、绿章、Claude 橙是亮色 ——
+// —— Palette: muted greys and browns; only the red stamp, green stamp and Claude orange are bright ——
 const C = {
   INK: [22, 19, 19], OUTLINE: [34, 27, 25],
   GROUND: [93, 87, 78], GROUND_D: [80, 74, 67],
@@ -33,7 +33,7 @@ const C = {
 const K = {};
 for (const k in C) K[k] = rgb(C[k]);
 
-// —— 当前画布 ——
+// —— Current canvas ——
 let G = null;
 function setCtx(ctx) { G = ctx; G.imageSmoothingEnabled = false; }
 
@@ -113,7 +113,7 @@ function drawCursor(x, y, mode) {
   pattern(CURSOR_PX, x, y, { X: K.INK, W: K.WHITE });
 }
 
-// —— 像素字：字形图集（白字），按 (字号, 颜色, 字符串) 缓存上好色的小画布 ——
+// —— Pixel text: glyph atlas (white glyphs); tinted text canvases are cached by (size, color, string) ——
 let FONT_IMG = null, ATLAS_IMG = null, BG_IMG = null, WIN_IMG = null;
 const FM = window.ASSETS.font;
 const PL = 2, PT = 4;
@@ -151,7 +151,7 @@ function textCanvas(s, size, col) {
   return cv;
 }
 
-// anchor: 'la' 左对齐，'ma' 居中，'ra' 右对齐；y 是字形的视觉顶边
+// anchor: 'la' left-aligned, 'ma' centered, 'ra' right-aligned; y is the visual top of the glyphs
 function txt(x, y, s, size = 12, col = K.WHITE, anchor = 'la', n = null) {
   s = String(s);
   if (!s) return;
@@ -168,7 +168,7 @@ function txt(x, y, s, size = 12, col = K.WHITE, anchor = 'la', n = null) {
   G.drawImage(c, x - PL, y - PT);
 }
 
-// 放大 k 倍的像素字（整块像素）
+// Pixel text scaled up k times (whole pixels)
 function bigText(x, y, s, size, k, col, shadow = null, align = 'center') {
   const w = tw(s, size) * k;
   if (align === 'center') x = Math.round(x - w / 2);
@@ -182,19 +182,34 @@ function bigText(x, y, s, size, k, col, shadow = null, align = 'center') {
   return [w, size * k];
 }
 
-// 逐字折行
+// Chinese characters (and full-width punctuation): each one is its own wrap unit
+const CJK = /[\u2e80-\u9fff\uff00-\uffef]/;
+const WRAP_TOKENS = /[\u2e80-\u9fff\uff00-\uffef]|[^\s\u2e80-\u9fff\uff00-\uffef]+|\s+/g;
+
+// Line wrapping: English breaks between words, Chinese between any two characters
 function wrap(s, size, width) {
   const lines = [];
-  let cur = '';
-  for (const ch of s) {
-    if (ch === '\n') { lines.push(cur); cur = ''; continue; }
-    if (cur && tw(cur + ch, size) > width) { lines.push(cur); cur = ch.trim(); } else cur += ch;
+  for (const para of s.split('\n')) {
+    let cur = '';
+    for (const tok of para.match(WRAP_TOKENS) || []) {
+      const space = !tok.trim();
+      if (cur && !space && tw(cur + tok, size) > width) { lines.push(cur.trimEnd()); cur = tok; } else if (cur || !space) cur += tok;
+    }
+    lines.push(cur.trimEnd());
   }
-  if (cur) lines.push(cur);
+  if (lines.length && !lines[lines.length - 1]) lines.pop();
   return lines;
 }
 
-// —— 精灵 ——
+// "Spoken length" for pacing dialogue and voices: a Chinese character counts as 1, any other character as 0.4,
+// so an English line takes about as long as the Chinese line it was translated from
+function speechLen(s) {
+  let n = 0;
+  for (const ch of s) n += CJK.test(ch) ? 1 : 0.4;
+  return n;
+}
+
+// —— Sprites ——
 const SPR = window.ASSETS.sprites;
 
 function spr(key, x, y) {
@@ -204,7 +219,7 @@ function spr(key, x, y) {
   return true;
 }
 
-// 把一块区域往某个颜色压暗（等同 pp.base.darken）
+// Darken an area toward a color (same as pp.base.darken)
 function darken(alpha, col = C.INK, box = null) {
   G.fillStyle = rgba(col, alpha);
   if (box) G.fillRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
@@ -224,7 +239,7 @@ function loadImages() {
   });
 }
 
-// —— 缓动 ——
+// —— Easing ——
 const clamp = (u) => Math.max(0, Math.min(1, u));
 const seg = (t, t0, t1) => (t1 > t0 ? clamp((t - t0) / (t1 - t0)) : +(t >= t1));
 const smooth = (u) => u * u * (3 - 2 * u);
@@ -245,7 +260,7 @@ function edgePoint(box, toward) {
   return [Math.round(cx + dx * s), Math.round(cy + dy * s)];
 }
 
-// —— 室外小人（脚底中心为 x, y） ——
+// —— Tiny outdoor people (x, y is the center of the feet) ——
 function tinyPerson(x, y, coat, hat = null, step = 0, skin = K.SKIN) {
   rect(x - 3, y + 1, x + 3, y + 1, K.GROUND_D);
   rect(x - 2, y - 3, x - 1, y - (step ? 1 : 0), K.OUTLINE);

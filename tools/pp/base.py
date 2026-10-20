@@ -1,4 +1,4 @@
-"""公共部分：画布尺寸、调色板、像素字体、绘图小工具。"""
+"""Shared pieces: canvas size, palette, pixel fonts, small drawing helpers."""
 import math
 import random
 from pathlib import Path
@@ -10,7 +10,7 @@ W, H, SCALE, FPS = 640, 360, 3, 30
 
 FONTS = {s: ImageFont.truetype(str(ROOT / f"assets/fonts/fusion-pixel-{s}px-zh_hans.ttf"), s) for s in (8, 10, 12)}
 
-# —— 调色板：灰褐、低饱和；只有红章、绿章、Claude 橙是亮色 ——
+# —— Palette: muted greys and browns; only the red stamp, green stamp and Claude orange are bright ——
 INK = (22, 19, 19)
 OUTLINE = (34, 27, 25)
 GROUND, GROUND_D, GROUND_L = (93, 87, 78), (80, 74, 67), (104, 98, 88)
@@ -43,16 +43,16 @@ SEAL = (150, 90, 110)
 XRAY_BG, XRAY_FG, XRAY_L = (18, 40, 42), (70, 140, 136), (150, 220, 210)
 
 
-# ———————————————————— 绘图 ————————————————————
+# ———————————————————— Drawing ————————————————————
 
 def draw(img):
     d = ImageDraw.Draw(img)
-    d.fontmode = "1"   # 关掉抗锯齿，保证每个像素都是实色
+    d.fontmode = "1"   # no anti-aliasing, so every pixel is a solid color
     return d
 
 
 def txt(d, xy, s, size=12, fill=WHITE, anchor="la"):
-    """y 取字形的视觉顶边（像素字体的字形比 ascender 低 3px）。"""
+    """y is the visual top of the glyphs (the pixel font's glyphs sit 3px below the ascender)."""
     d.text((xy[0], xy[1] - 3), s, font=FONTS[size], fill=fill, anchor=anchor)
 
 
@@ -61,7 +61,7 @@ def tw(s, size=12):
 
 
 def wrap(s, size, width):
-    """逐字折行（中文为主，英文单词也会被拆开，够用）。"""
+    """Wrap character by character (made for Chinese; English words get split too, which is good enough here)."""
     lines, cur = [], ""
     for ch in s:
         if ch == "\n":
@@ -90,7 +90,7 @@ def text_mask(s, size, k=1):
 
 
 def big_text(img, x, y, s, size, k, fill, shadow=None, align="center"):
-    """把像素字放大 k 倍（整块像素），返回 (宽, 高)。"""
+    """Scale pixel text up k times (whole pixels); returns (width, height)."""
     m = text_mask(s, size, k)
     if align == "center":
         x -= m.width // 2
@@ -103,7 +103,7 @@ def big_text(img, x, y, s, size, k, fill, shadow=None, align="center"):
 
 
 def darken(img, alpha, color=INK, box=None):
-    """把整张图（或 box 区域）往 color 方向压暗。"""
+    """Darken the whole image (or the box area) toward color."""
     if box is None:
         return Image.blend(img, Image.new("RGB", img.size, color), alpha)
     region = img.crop(box)
@@ -112,7 +112,7 @@ def darken(img, alpha, color=INK, box=None):
 
 
 def speckle(mask, rate, seed):
-    """随机抠掉一些像素，做出印章缺墨 / 纸张磨损的颗粒感。"""
+    """Knock out random pixels for the grainy look of a dry stamp / worn paper."""
     rng = random.Random(seed)
     px = mask.load()
     for y in range(mask.height):
@@ -149,7 +149,7 @@ SPARK_7 = [
 
 
 def pattern(d, pat, x, y, colors, k=1):
-    """按字符图案画像素块；colors 把字符映射到颜色，'.' 为透明。"""
+    """Draw pixel blocks from a character pattern; colors maps characters to colors, '.' is transparent."""
     for j, row in enumerate(pat):
         for i, ch in enumerate(row):
             c = colors.get(ch)
@@ -158,7 +158,7 @@ def pattern(d, pat, x, y, colors, k=1):
 
 
 def spark(d, cx, cy, color, big=True, k=1):
-    """Claude 的星芒，像素化致意版。"""
+    """Claude's spark, as a pixel-art tribute."""
     pat = SPARK_13 if big else SPARK_7
     r = len(pat) // 2 * k
     pattern(d, pat, cx - r, cy - r, {"X": color}, k)
@@ -194,7 +194,7 @@ def draw_cursor(d, x, y, mode="arrow"):
     pattern(d, CURSOR_PX, x, y, {"X": INK, "W": WHITE})
 
 
-# ———————————————————— 缓动 ————————————————————
+# ———————————————————— Easing ————————————————————
 
 def clamp(u):
     return max(0.0, min(1.0, u))
@@ -221,7 +221,7 @@ def lerp2(p, q, u):
 
 
 def edge_point(box, toward):
-    """box 中心朝 toward 方向射线与 box 边框的交点。"""
+    """Where a ray from the center of box toward `toward` crosses the edge of box."""
     x0, y0, x1, y1 = box
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     dx, dy = toward[0] - cx, toward[1] - cy

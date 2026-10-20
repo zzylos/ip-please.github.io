@@ -1,6 +1,6 @@
-"""旅客立绘：用参数拼出半身像（脸型、肤色、发型、帽子、眼镜、衣服、表情）。
+"""Traveler portraits: half-length figures assembled from parameters (face, skin, hair, hat, glasses, clothes, expression).
 
-立绘画布 180x128，人物中轴 x=90，头顶约在 y=12~18；窗口里按中轴对齐摆放。
+The portrait canvas is 180x128, the figure's center line is x=90, the top of the head is around y=12-18; portraits are aligned on the center line in the window.
 """
 import math
 from dataclasses import dataclass, replace
@@ -16,7 +16,7 @@ SKINS = {
     "tan": ((178, 130, 94), (142, 100, 72), (106, 72, 52), (198, 152, 114)),
     "deep": ((130, 90, 66), (102, 68, 50), (74, 48, 36), (152, 108, 80)),
 }
-# 头部椭圆（相对中轴）和下巴多边形
+# Head ellipse (relative to the center line) and chin polygon
 FACES = {
     "oval": ((-26, 16, 26, 74), [(-26, 44), (-23, 66), (-12, 80), (12, 80), (23, 66), (26, 44)]),
     "round": ((-28, 18, 28, 76), [(-28, 46), (-26, 66), (-14, 80), (14, 80), (26, 66), (28, 46)]),
@@ -48,14 +48,14 @@ class Person:
     inner: tuple = (210, 204, 190)
     tie: tuple = (120, 40, 36)
     acc: str = None                # catears headphones
-    expr: str = "neutral"          # 默认表情
-    shadow: bool = False           # 整个人压成剪影
+    expr: str = "neutral"          # default expression
+    shadow: bool = False           # render the whole person as a silhouette
     eyebags: bool = False
-    mystery: bool = False          # 兜帽阴影遮脸
+    mystery: bool = False          # hood shadow hides the face
 
     @property
     def walker(self):
-        """上方室外小人用的 (衣服色, 头顶色)。"""
+        """(clothes color, head color) for the tiny outdoor person at the top."""
         top = self.hat_color if self.hat else self.hair_color
         return self.top_color if self.top != "flag" else (86, 82, 64), top
 
@@ -67,7 +67,7 @@ class Person:
 
 
 class Group:
-    """拼车团：一群人挤在一个窗口里。"""
+    """The carpool: a group of people squeezed into one window."""
 
     def __init__(self, people, expr="smile"):
         self.people = tuple(people)
@@ -82,7 +82,7 @@ class Group:
         return group_sprite(self.people, expr or self.expr)
 
 
-# ———————————————————— 各部件 ————————————————————
+# ———————————————————— Parts ————————————————————
 
 def _poly(d, pts, cx, fill, outline=None):
     p = [(cx + x, y) for x, y in pts]
@@ -93,7 +93,7 @@ def _poly(d, pts, cx, fill, outline=None):
 
 
 def _pattern_in_body(S, cx, base, line, step):
-    """格子衫：在身体多边形里画格纹。"""
+    """Plaid shirt: draw the check pattern inside the body polygon."""
     mask = Image.new("L", S.size, 0)
     _poly(draw(mask), BODY, cx, 255)
     pat = Image.new("RGBA", S.size, base + (255,))
@@ -186,7 +186,7 @@ def _neck(d, cx, sk_d, sk_dd):
 def _eyes(d, cx, expr, sk_d, sk_dd, brow):
     white, pupil = (226, 218, 204), INK
     by = {"shock": 43, "sad": 45}.get(expr, 45)
-    # 眉毛
+    # eyebrows
     if expr == "sad":
         d.line([(cx - 18, 46), (cx - 10, 44)], fill=brow, width=2)
         d.line([(cx + 8, 44), (cx + 16, 46)], fill=brow, width=2)
@@ -457,7 +457,7 @@ def portrait(p, expr="neutral", slip=False, sweat=None):
     _eyewear(d, p, cx, slip)
     _acc(d, p, cx, head)
     if p.mystery:
-        # 兜帽下的阴影，只露出两点眼光
+        # Shadow under the hood, showing only two glints of eyes
         hood_in = shade(p.hat_color, 0.55)
         d.chord([head[0] - 1, head[1] - 2, head[2] + 1, head[1] + 70], 180, 360, fill=hood_in)
         d.rectangle([head[0] - 1, head[1] + 33, head[2] + 1, 54], fill=hood_in)
@@ -477,7 +477,7 @@ def portrait(p, expr="neutral", slip=False, sweat=None):
 
 @lru_cache(maxsize=32)
 def group_sprite(people, expr):
-    """六个人挤在一起：后排三人偏暗、偏高，前排三人。"""
+    """Six people squeezed together: three in the back row (darker, higher) and three in front."""
     G = Image.new("RGBA", (300, 128), (0, 0, 0, 0))
     back, front = people[:3], people[3:]
     for p, dx in zip(back, (-62, 0, 62)):
@@ -491,7 +491,7 @@ def group_sprite(people, expr):
 
 
 def photo(sprite, size=(40, 50), bg=(176, 180, 176)):
-    """证件照：同一张立绘缩小 + 压色，像原作那样粗糙。"""
+    """Passport photo: the same portrait scaled down and color-crushed, rough like in the original game."""
     w = sprite.width
     src = sprite.crop((w // 2 - 40, 0, w // 2 + 40, 100))
     flat = Image.new("RGB", src.size, bg)

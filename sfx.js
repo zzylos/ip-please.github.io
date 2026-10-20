@@ -1,5 +1,5 @@
 'use strict';
-// 音效和配乐：移植自 pp/audio.py，全部在浏览器里现场合成，不加载任何音频文件。
+// Sound effects and music, ported from pp/audio.py: all synthesized live in the browser, no audio files are loaded.
 
 const SFX = (() => {
   const SR = 44100;
@@ -24,7 +24,7 @@ const SFX = (() => {
     return x;
   }
 
-  // 二阶 Butterworth（RBJ biquad）；带通 = 高通 + 低通 串联
+  // Second-order Butterworth (RBJ biquad); band-pass = high-pass and low-pass in series
   function biquad(x, type, f) {
     f = Math.min(f, SR * 0.45);
     const w0 = 2 * Math.PI * f / SR, cs = Math.cos(w0), al = Math.sin(w0) / (2 * Math.SQRT1_2);
@@ -98,7 +98,7 @@ const SFX = (() => {
     for (let i = 0; i < x.length && p + i < out.length; i++) out[p + i] += x[i] * g;
   }
 
-  // ———————————————— 人声 / 环境 ————————————————
+  // ———————————————— Voices / ambience ————————————————
 
   function mumble(dur, pitch, seed, peak = 0.3) {
     const r = rng(seed * 31 + 5), out = new Float32Array(N(dur));
@@ -138,7 +138,7 @@ const SFX = (() => {
     return norm(add(v, ck, 0.5), 0.4);
   }
 
-  // ———————————————— 桌面音效 ————————————————
+  // ———————————————— Desk sounds ————————————————
 
   function footstep(seed) {
     const n = N(0.06);
@@ -289,7 +289,7 @@ const SFX = (() => {
     return norm(fade(x, 0.05, 0.05), 0.18);
   }
 
-  // ———————————————— 配乐（原创苏式小调进行曲） ————————————————
+  // ———————————————— Music (an original Soviet-style march in a minor key) ————————————————
 
   const mf = (m) => 440 * 2 ** ((m - 69) / 12);
   const THEME = [
@@ -365,7 +365,7 @@ const SFX = (() => {
     return norm(out, 0.5);
   }
 
-  // 全片唯一一次正经放行：D 大调号角
+  // The one truly happy approval in the whole game: a horn fanfare in D major
   function fanfare() {
     const beat = 0.5, out = new Float32Array(N(3.6));
     [[62, 0.5], [66, 0.5], [69, 0.5], [74, 2.5]].forEach(([m, b], i) => {
@@ -377,7 +377,7 @@ const SFX = (() => {
     return norm(out, 0.6);
   }
 
-  // 低音嗡鸣 + 心跳
+  // Low drone + heartbeat
   function tension(dur) {
     const n = N(dur);
     const drone = filt(add(mul(square(mf(26), n), 0.5), square(mf(33) * 1.002, n), 0.4), 'lowpass', 300);
@@ -434,7 +434,7 @@ const SFX = (() => {
       master = ac.createGain();
       master.gain.value = 0.9;
       master.connect(comp).connect(ac.destination);
-      // 空闲时把常用音效先合成好，避免第一次播放卡顿
+      // Pre-synthesize common sounds while idle, so the first playback doesn't stutter
       const warm = ['click', 'select', 'stamp_deny', 'stamp_approve', 'tray', 'tray_back', 'discrepancy', 'inspect_on',
         'inspect_off', 'thud', 'intercom', 'citation', 'detain', 'scuffle', 'day_hit', 'whoosh', 'sad', 'bell',
         'xray', 'gunshot'];
@@ -451,7 +451,7 @@ const SFX = (() => {
     key(seed = 0) { if (ac) playBuf(buffer('key' + (seed % 16), () => typekey(seed % 16)), 1.5); },
     mumble(text, pitch, seed) {
       if (!ac) return;
-      const dv = Math.round(Math.min(1.3, 0.25 + 0.065 * [...text].length) * 100) / 100;
+      const dv = Math.round(Math.min(1.3, 0.25 + 0.065 * speechLen(text)) * 100) / 100;
       const key = `mum${dv}|${pitch}|${seed % 12}`;
       playBuf(buffer(key, () => mumble(dv, pitch, seed % 12)));
     },
@@ -471,7 +471,7 @@ const SFX = (() => {
         ambSrc = null;
       }
     },
-    stop(src) { try { if (src) src.stop(); } catch (e) { /* 已经停了 */ } },
+    stop(src) { try { if (src) src.stop(); } catch (e) { /* already stopped */ } },
     toggleMute() {
       muted = !muted;
       if (master) master.gain.value = muted ? 0 : 0.9;

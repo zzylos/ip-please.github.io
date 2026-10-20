@@ -1,4 +1,4 @@
-"""个别桥段专用的画面轨道：地址卡堆、手风琴护照、蒸馏大军 + 狙击、规则书特写。"""
+"""Visual tracks for specific scenes: the address-card pile, the accordion passport, the distillation army + sniping, the rulebook close-up."""
 import random
 
 from PIL import Image
@@ -11,7 +11,7 @@ from .docs import AddressCard
 
 
 def address_pile(case, n=37, dur=1.6):
-    """桌上“啪啪啪”摞起 n 张一模一样的地址卡。"""
+    """Slap slap slap: n identical address cards pile up on the desk."""
     rng = random.Random(7)
     spots = [(452 + rng.randint(-30, 30), 196 + rng.randint(-14, 50)) for _ in range(n)]
     card = AddressCard()
@@ -29,12 +29,12 @@ def address_pile(case, n=37, dur=1.6):
     return fn
 
 
-NAMES = ["KEVIN", "小王", "TONY", "阿强", "LUCY", "老张", "MOMO", "大刘", "JACK", "小美", "ERIC", "阿杰",
-         "AMY", "胖虎", "LEO", "小林", "MIA", "二狗", "SAM", "阿珍", "BEN", "老李", "IVY", "小赵"]
+NAMES = ["KEVIN", "XIAO WANG", "TONY", "A-QIANG", "LUCY", "LAO ZHANG", "MOMO", "DA LIU", "JACK", "XIAO MEI", "ERIC", "A-JIE",
+         "AMY", "PANG HU", "LEO", "XIAO LIN", "MIA", "ER GOU", "SAM", "A-ZHEN", "BEN", "LAO LI", "IVY", "XIAO ZHAO"]
 
 
 def accordion(case, x, y, w=152, dur=2.0, total=1000):
-    """护照像手风琴一样往下展开，上面写满持证人。"""
+    """The passport unfolds downward like an accordion, covered in holder names."""
     rng = random.Random(3)
     rows = [f"#{i:04d}  {rng.choice(NAMES)}" for i in range(1, 80)]
     for k in range(6):
@@ -53,12 +53,12 @@ def accordion(case, x, y, w=152, dur=2.0, total=1000):
             if y + 2 <= ry <= y + L - 10:
                 txt(d, (x + 8, ry), s, 8, TEXT)
         d.rectangle([x + w - 74, y + 4, x + w - 6, y + 18], fill=RED_D)
-        txt(d, (x + w - 40, y + 7), f"共 {total:,} 人", 8, WHITE, anchor="ma")
+        txt(d, (x + w - 40, y + 7), f"{total:,} total", 8, WHITE, anchor="ma")
     return fn
 
 
 class Clones:
-    """蒸馏大军：一列长得一模一样的小人冲向边境，被 429 一个个拦下。"""
+    """The distillation army: a line of identical tiny people rushing the border, stopped one by one with 429s."""
 
     def __init__(self, n=8, first_hit=1.3, gap=0.6, speed=34):
         self.items = []
@@ -119,13 +119,13 @@ def alarm(dur):
         if int(lt * 3) % 2 == 0 or lt > dur - 1:
             d.rectangle([170, 44, 470, 62], fill=INK)
             d.rectangle([170, 44, 470, 62], outline=RED_L)
-            txt(d, (320, 49), "警报：检测到批量请求（蒸馏）", 10, RED_L, anchor="ma")
+            txt(d, (320, 49), "ALERT: mass requests (distillation)!", 10, RED_L, anchor="ma")
         return img
     return fn
 
 
 def rulebook(lines_left, big_lines, note=""):
-    """规则书特写：整屏压暗，中间摊开一本书。"""
+    """Rulebook close-up: the whole screen dims and a book lies open in the middle."""
     def fn(ctx, lt):
         img = darken(ctx.img, 0.72)
         d = draw(img)
@@ -138,7 +138,7 @@ def rulebook(lines_left, big_lines, note=""):
         d.rectangle([x0 + bw // 2 + 2, y0, x0 + bw, y0 + bh], fill=PAPER)
         d.line([x0 + bw // 2, y0, x0 + bw // 2, y0 + bh], fill=PAPER_D, width=3)
         spark(d, x0 + 24, y0 + 22, GOLD, big=False)
-        txt(d, (x0 + 36, y0 + 16), "CLAUDE 宪法", 12, TEXT)
+        txt(d, (x0 + 36, y0 + 16), "CLAUDE'S CONSTITUTION", 12, TEXT)
         for i, s in enumerate(lines_left):
             txt(d, (x0 + 16, y0 + 44 + i * 16), s, 10, TEXT_L if i else TEXT)
         for i in range(5):

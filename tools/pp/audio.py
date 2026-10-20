@@ -1,4 +1,4 @@
-"""音效和配乐：全部用 numpy 现场合成，不使用原作素材；旋律为原创。"""
+"""Sound effects and music: all synthesized with numpy, no assets from the original game; the melodies are original."""
 import wave
 from functools import lru_cache
 
@@ -58,10 +58,10 @@ def silence(dur):
     return np.zeros(_n(dur))
 
 
-# ———————————————————— 环境 & 人声 ————————————————————
+# ———————————————————— Ambience & voices ————————————————————
 
 def ambient(dur):
-    """室外风声 + 远处人群嗡嗡声。"""
+    """Wind outside + the murmur of a distant crowd."""
     n = _n(dur)
     wind = _filt(_noise(n, 1), "lowpass", 380) * 3.0
     crowd = _filt(_noise(n, 2), "bandpass", [220, 900])
@@ -72,7 +72,7 @@ def ambient(dur):
 
 @lru_cache(maxsize=256)
 def mumble(dur, pitch, seed, peak=0.3):
-    """叽里咕噜的假语音（原作风格，不是任何语言）。"""
+    """Gibberish fake speech (in the style of the original game; not any real language)."""
     rng = np.random.default_rng(seed)
     out = np.zeros(_n(dur))
     pos = 0
@@ -92,7 +92,7 @@ def mumble(dur, pitch, seed, peak=0.3):
 
 @lru_cache(maxsize=4)
 def intercom():
-    """喇叭喊'下一位'：带失真的广播腔。"""
+    """The speaker calling 'next': a distorted PA voice."""
     n = _n(0.5)
     v = mumble(0.42, 150, 11, 1.0)
     v = np.concatenate([np.zeros(_n(0.04)), v, np.zeros(n)])[:n]
@@ -102,7 +102,7 @@ def intercom():
     return _norm(v + click_ * 0.5, 0.4)
 
 
-# ———————————————————— 桌面音效 ————————————————————
+# ———————————————————— Desk sounds ————————————————————
 
 @lru_cache(maxsize=16)
 def footstep(seed):
@@ -125,7 +125,7 @@ def paper(seed=0):
 
 @lru_cache(maxsize=4)
 def thud():
-    """厚重的证件拍在桌上。"""
+    """A heavy passport slapped onto the desk."""
     n = _n(0.25)
     x = np.sin(_phase(np.linspace(120, 60, n), n)) * _decay(n, 0.05)
     x += _filt(_noise(n, 81), "lowpass", 1200) * _decay(n, 0.01)
@@ -161,7 +161,7 @@ def select():
 
 @lru_cache(maxsize=4)
 def discrepancy():
-    """发现信息不符：低沉的三全音'咚——'。"""
+    """Discrepancy found: a low tritone 'dong'."""
     n1, n2 = _n(0.12), _n(0.4)
     a = (_square(110, n1) + _square(155.6, n1)) * 0.5
     b = (_square(98, n2) + _square(138.6, n2)) * 0.5 * _decay(n2, 0.15)
@@ -180,7 +180,7 @@ def tray(reverse=False):
 
 @lru_cache(maxsize=4)
 def stamp(kind="deny"):
-    """盖章：一记闷响（准予入境的章稍微清亮一点）。"""
+    """Stamping: a dull thud (the APPROVED stamp is a little brighter)."""
     n = _n(0.4)
     f = np.linspace(110, 50, n) if kind == "approve" else np.linspace(95, 42, n)
     thud_ = np.sin(_phase(f, n)) * _decay(n, 0.09)
@@ -198,7 +198,7 @@ def detain_btn():
 
 @lru_cache(maxsize=4)
 def scuffle():
-    """卫兵冲进来把人架走。"""
+    """Guards rush in and drag the traveler away."""
     out = np.zeros(_n(1.2))
     rng = np.random.default_rng(91)
     for i in range(10):
@@ -212,7 +212,7 @@ def scuffle():
 
 @lru_cache(maxsize=8)
 def printer(dur):
-    """针式打印机：嗡嗡 + 咔哒。"""
+    """Dot-matrix printer: buzz + clicks."""
     n = _n(dur)
     t = np.arange(n) / SR
     buzz = _square(55, n) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 14 * t)))
@@ -222,7 +222,7 @@ def printer(dur):
 
 @lru_cache(maxsize=4)
 def citation():
-    """收到警告单：两声下行的提示音。"""
+    """Citation received: two falling beeps."""
     a = _square(330, _n(0.15))
     b = _square(247, _n(0.3)) * _decay(_n(0.3), 0.12)
     return _norm(_filt(_fade(_cat(a, b)), "lowpass", 2000), 0.22)
@@ -292,7 +292,7 @@ def whoosh():
     return _norm(x, 0.2)
 
 
-# ———————————————————— 配乐（原创苏式小调进行曲） ————————————————————
+# ———————————————————— Music (an original Soviet-style march in a minor key) ————————————————————
 
 def _f(m):
     return 440.0 * 2 ** ((m - 69) / 12)
@@ -383,13 +383,13 @@ def march(bars=tuple(range(8)), bpm=104, drums=True, lead=1.0, tail=1.5):
 
 @lru_cache(maxsize=4)
 def sad_cadence():
-    """下班结算：慢速、无鼓的收尾两小节。"""
+    """End-of-day summary: two slow closing bars, no drums."""
     return _norm(march((6, 7), bpm=84, drums=False, lead=0.8, tail=2.0), 0.4)
 
 
 @lru_cache(maxsize=4)
 def day_hit():
-    """日期卡：定音鼓滚奏 + 重击。"""
+    """Day card: timpani roll + a heavy hit."""
     out = np.zeros(_n(1.6))
     for r in range(10):
         _place(out, r * 0.05, _kick(), 0.15 + r * 0.03)
@@ -400,7 +400,7 @@ def day_hit():
 
 @lru_cache(maxsize=4)
 def fanfare():
-    """全片唯一一次正经放行：D 大调号角。"""
+    """The one truly happy approval in the whole game: a horn fanfare in D major."""
     beat = 60 / 120
     out = np.zeros(_n(3.6))
     for i, (m, b) in enumerate(((62, .5), (66, .5), (69, .5), (74, 2.5))):
@@ -413,7 +413,7 @@ def fanfare():
 
 
 def tension(dur):
-    """低音嗡鸣 + 心跳。"""
+    """Low drone + heartbeat."""
     n = _n(dur)
     t = np.arange(n) / SR
     drone = _filt(_square(_f(26), n) * 0.5 + _square(_f(33) * 1.002, n) * 0.4, "lowpass", 300)

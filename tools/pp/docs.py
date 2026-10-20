@@ -1,4 +1,4 @@
-"""证件和纸张。每种证件知道自己的尺寸、怎么画、各栏位的相对坐标（给检查模式连红线用）。"""
+"""Documents and papers. Each document knows its size, how to draw itself, and where its fields are (for the red lines in inspect mode)."""
 import random
 from functools import lru_cache
 
@@ -23,7 +23,7 @@ class Doc:
         return self.fields[name]
 
     def image(self):
-        """单独渲染成一张 RGBA（打印纸条等需要裁切时用）。"""
+        """Render on its own as an RGBA image (for things like the printer slip that need clipping)."""
         im = Image.new("RGBA", (self.w + 2, self.h + 2), (0, 0, 0, 0))
         self.draw(im, draw(im), 0, 0, shadow=False)
         return im
@@ -87,7 +87,7 @@ CHICKEN = [
 
 
 class CrayonPassport(Doc):
-    """乔治老哥用蜡笔画的“美国护照”。"""
+    """George's "American passport", drawn in crayon."""
     w, h = 176, 116
     grab = (24, 14)
     icon = ("book", (70, 90, 170))
@@ -102,7 +102,7 @@ class CrayonPassport(Doc):
             _shadow(d, x, y, w, h)
         d.rectangle([x, y, x + w - 1, y + h - 1], fill=(238, 230, 210))
         blue, red, yellow = (70, 90, 170), (196, 60, 52), (220, 180, 60)
-        for i in range(0, w, 3):     # 蜡笔歪歪扭扭的边框
+        for i in range(0, w, 3):     # wobbly crayon border
             d.point((x + i, y + 1 + rng.randint(0, 2)), fill=blue)
             d.point((x + i, y + h - 3 + rng.randint(0, 2)), fill=blue)
         for j in range(0, h, 3):
@@ -113,8 +113,8 @@ class CrayonPassport(Doc):
             txt(d, (cx, y + 6 + rng.randint(-1, 1)), ch, 8, red if i % 2 else blue)
             cx += tw(ch, 8) + 1
         d.rectangle([x + 9, y + 22, x + 50, y + 73], outline=blue)
-        d.ellipse([x + 22, y + 28, x + 38, y + 44], outline=INK)        # 火柴人照片
-        d.line([x + 26, y + 39, x + 34, y + 39], fill=INK, width=2)     # 胡子
+        d.ellipse([x + 22, y + 28, x + 38, y + 44], outline=INK)        # stick-figure photo
+        d.line([x + 26, y + 39, x + 34, y + 39], fill=INK, width=2)     # mustache
         d.line([x + 30, y + 44, x + 30, y + 60], fill=INK)
         d.line([x + 22, y + 50, x + 38, y + 50], fill=INK)
         d.line([x + 30, y + 60, x + 24, y + 70], fill=INK)
@@ -130,11 +130,11 @@ class CrayonPassport(Doc):
 
 
 class Card(Doc):
-    """设备入境卡 / 账户卡：标题 + 若干行 label/value。"""
+    """Device entry card / account card: a title plus label/value rows."""
     w = 152
     grab = (20, 12)
 
-    def __init__(self, rows, title="设备入境卡", sub="DEVICE ENTRY", color=PINK, color_d=PINK_D, seal=None,
+    def __init__(self, rows, title="DEVICE ENTRY CARD", sub="M.O.A.", color=PINK, color_d=PINK_D, seal=None,
                  value_x=38):
         self.rows, self.title, self.sub = rows, title, sub
         self.color, self.color_d, self.value_x = color, color_d, value_x
@@ -162,24 +162,24 @@ class Card(Doc):
             sx, sy = x + w - 40, y + h - 38
             d.ellipse([sx, sy, sx + 33, sy + 33], outline=SEAL, width=2)
             txt(d, (sx + 17, sy + 8), "M.O.A.", 8, SEAL, anchor="ma")
-            txt(d, (sx + 17, sy + 19), "对齐部", 8, SEAL, anchor="ma")
+            txt(d, (sx + 17, sy + 19), "UTC+8", 8, SEAL, anchor="ma")
 
 
 def device(**kw):
-    """设备入境卡，按传入顺序排栏：ip / loc / tz / lang / dev。"""
-    labels = {"ip": "IP", "loc": "归属", "tz": "时区", "lang": "语言", "dev": "设备"}
+    """Device entry card; rows in the order given: ip / loc / tz / lang / dev."""
+    labels = {"ip": "IP", "loc": "LOC", "tz": "TZ", "lang": "LANG", "dev": "DEVICE"}
     rows = [(labels[k], v) for k, v in kw.items()]
     return Card(rows)
 
 
 def account(**kw):
-    labels = {"pay": "付款", "bill": "账单", "phone": "手机"}
+    labels = {"pay": "CARD", "bill": "BILL", "phone": "PHONE"}
     rows = [(labels[k], v) for k, v in kw.items()]
-    return Card(rows, title="账户卡", sub="ACCOUNT", color=SAGE, color_d=SAGE_D, seal=False)
+    return Card(rows, title="ACCOUNT CARD", sub="M.O.A.", color=SAGE, color_d=SAGE_D, seal=False)
 
 
 class Note(Doc):
-    """夹在护照里的小纸条（地下中转联盟）。"""
+    """A small note tucked into a passport (the Underground Relay Alliance)."""
     grab = (16, 8)
     icon = ("card", (236, 228, 204))
 
@@ -199,7 +199,7 @@ class Note(Doc):
 
 
 class Citation(Doc):
-    """对齐部警告单（原作的罚单）。"""
+    """M.O.A. warning slip (the citation from the original game)."""
     w = 168
     grab = (20, 10)
     icon = ("card", (226, 184, 176))
@@ -214,14 +214,14 @@ class Citation(Doc):
             _shadow(d, x, y, self.w, self.h)
         d.rectangle([x, y, x + self.w - 1, y + self.h - 1], fill=(226, 184, 176))
         d.rectangle([x, y, x + self.w - 1, y + 16], fill=RED_D)
-        txt(d, (x + 6, y + 4), "M.O.A. 警告单", 10, WHITE)
+        txt(d, (x + 6, y + 4), "M.O.A. WARNING", 10, WHITE)
         txt(d, (x + self.w - 6, y + 6), "CITATION", 8, (226, 184, 176), anchor="ra")
         for i, s in enumerate(self.lines):
             txt(d, (x + 8, y + 22 + i * 13), s, 10, TEXT)
 
 
 class PrintStrip(Doc):
-    """打印机吐出来的长纸条。"""
+    """The long slip that comes out of the printer."""
     w = 128
     icon = ("card", (232, 230, 222))
 
@@ -250,7 +250,7 @@ class PrintStrip(Doc):
 
 
 class PromptPaper(Doc):
-    """结局：旅客递上来的不是护照，是一段 prompt。"""
+    """The ending: what this traveler hands over is not a passport, it's a prompt."""
     w, h = 176, 120
     grab = (24, 14)
     icon = ("card", (236, 234, 226))
@@ -264,13 +264,13 @@ class PromptPaper(Doc):
             _shadow(d, x, y, self.w, self.h)
         d.rectangle([x, y, x + self.w - 1, y + self.h - 1], fill=(236, 234, 226))
         d.rectangle([x + 3, y + 3, x + self.w - 4, y + 16], fill=(120, 116, 110))
-        txt(d, (x + 8, y + 6), "PROMPT · 用户请求", 8, WHITE)
+        txt(d, (x + 8, y + 6), "PROMPT · USER REQUEST", 8, WHITE)
         for i, s in enumerate(self.lines):
             txt(d, (x + 9, y + 22 + i * 13), s, 10, INK)
 
 
 class MiniPassport(Doc):
-    """合上的护照封面（套娃用）。"""
+    """A closed passport cover (for the nesting dolls)."""
 
     def __init__(self, w, h, cover, label):
         self.w, self.h, self.cover, self.label = w, h, cover, label
@@ -320,12 +320,12 @@ def small_icon(d, kind, color, x, y):
 
 @lru_cache(maxsize=8)
 def stamp_mark(kind, k=1):
-    """拒绝 / 准予入境的章：带随机缺墨的颗粒感。返回 L 蒙版。"""
+    """The DENIED / APPROVED stamps, with random dry-ink grain. Returns an L mask."""
     w, h = 58, 34
     m = Image.new("L", (w, h), 0)
     dm = draw(m)
     dm.rectangle([0, 0, w - 1, h - 1], outline=255, width=2)
-    big, small = ("DENIED", "拒绝入境") if kind == "deny" else ("APPROVED", "准予入境")
+    big, small = ("DENIED", "M.O.A.") if kind == "deny" else ("APPROVED", "M.O.A.")
     txt(dm, (w // 2, 5), big, 12 if kind == "deny" else 10, 255, anchor="ma")
     txt(dm, (w // 2, 20), small, 10, 255, anchor="ma")
     speckle(m, 0.08, 9 if kind == "deny" else 10)
